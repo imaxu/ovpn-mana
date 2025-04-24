@@ -1,1 +1,0 @@
-/usr/bin/g++ -g CMakeFiles/openvpnmgr.dir/src/main.cpp.o -o Linux_x86_64/openvpnmgr  -Wl,-rpath,/home/xuwh/dev/ovpn-mana/sdk/build/Linux_x86_64 Linux_x86_64/libovpn-mana.so.1.0.0.1 

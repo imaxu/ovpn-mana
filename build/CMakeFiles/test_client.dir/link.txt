@@ -1,1 +1,0 @@
-/usr/bin/g++ -g CMakeFiles/test_client.dir/test/test_client.cpp.o -o Linux_x86_64/test_client  Linux_x86_64/libopenvpn_mgr.a /usr/lib/x86_64-linux-gnu/libgtest_main.a /usr/lib/x86_64-linux-gnu/libgtest.a 
