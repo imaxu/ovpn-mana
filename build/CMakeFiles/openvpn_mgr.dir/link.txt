@@ -1,0 +1,2 @@
+/usr/bin/ar qc libopenvpn_mgr.a CMakeFiles/openvpn_mgr.dir/src/OpenVPNManager.cpp.o
+/usr/bin/ranlib libopenvpn_mgr.a

@@ -1,0 +1,22 @@
+[
+{
+  "directory": "/root/src/openvpn-mana/sdk/build",
+  "command": "/usr/bin/g++  -I/root/src/openvpn-mana/sdk/include -g -std=gnu++17 -o CMakeFiles/openvpn_mgr.dir/src/OpenVPNManager.cpp.o -c /root/src/openvpn-mana/sdk/src/OpenVPNManager.cpp",
+  "file": "/root/src/openvpn-mana/sdk/src/OpenVPNManager.cpp"
+},
+{
+  "directory": "/root/src/openvpn-mana/sdk/build",
+  "command": "/usr/bin/g++  -I/root/src/openvpn-mana/sdk/include -g -std=gnu++17 -o CMakeFiles/openvpnmgr.dir/src/main.cpp.o -c /root/src/openvpn-mana/sdk/src/main.cpp",
+  "file": "/root/src/openvpn-mana/sdk/src/main.cpp"
+},
+{
+  "directory": "/root/src/openvpn-mana/sdk/build",
+  "command": "/usr/bin/g++ -Dovpn_mana_EXPORTS -I/root/src/openvpn-mana/sdk/include -g -fPIC -std=gnu++17 -o CMakeFiles/ovpn-mana.dir/src/ovpn-mana.cpp.o -c /root/src/openvpn-mana/sdk/src/ovpn-mana.cpp",
+  "file": "/root/src/openvpn-mana/sdk/src/ovpn-mana.cpp"
+},
+{
+  "directory": "/root/src/openvpn-mana/sdk/build",
+  "command": "/usr/bin/g++  -I/root/src/openvpn-mana/sdk/include -g -DGTEST_HAS_PTHREAD=1 -std=gnu++17 -o CMakeFiles/test_client.dir/test/test_client.cpp.o -c /root/src/openvpn-mana/sdk/test/test_client.cpp",
+  "file": "/root/src/openvpn-mana/sdk/test/test_client.cpp"
+}
+]

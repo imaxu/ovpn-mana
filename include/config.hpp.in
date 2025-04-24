@@ -1,0 +1,8 @@
+#pragma once
+
+#include <string>
+
+const std::string EASY_RSA_DIR = "@EASY_RSA_DIR@";
+const std::string OVPN_DIR = "@OVPN_DIR@";
+const std::string OPENVPN_BIN = "/usr/sbin/openvpn";
+const std::string SYSTEMCTL_BIN = "/bin/systemctl";

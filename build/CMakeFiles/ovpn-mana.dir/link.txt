@@ -1,0 +1,1 @@
+/usr/bin/g++ -fPIC -g -shared -Wl,-soname,libovpn-mana.so.1 -o libovpn-mana.so.1.0.0.1 CMakeFiles/ovpn-mana.dir/src/ovpn-mana.cpp.o  libopenvpn_mgr.a 

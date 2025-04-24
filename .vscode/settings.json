@@ -1,0 +1,19 @@
+{
+  "files.associations": {
+    "*.ino": "cpp",
+    "*.vue": "vue",
+    "*.in": "cpp",
+    "string": "cpp",
+    "unordered_map": "cpp",
+    "string_view": "cpp",
+    "deque": "cpp",
+    "list": "cpp",
+    "vector": "cpp",
+    "typeindex": "cpp",
+    "typeinfo": "cpp",
+    "array": "cpp",
+    "bitset": "cpp",
+    "initializer_list": "cpp",
+    "utility": "cpp"
+  }
+}
