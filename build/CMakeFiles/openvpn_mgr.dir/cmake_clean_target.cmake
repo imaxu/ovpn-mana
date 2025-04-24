@@ -1,3 +1,3 @@
 file(REMOVE_RECURSE
-  "libopenvpn_mgr.a"
+  "Linux_x86_64/libopenvpn_mgr.a"
 )

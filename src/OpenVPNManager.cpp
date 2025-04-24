@@ -8,14 +8,18 @@
 #include <iostream>
 #include <memory>
 #include <algorithm>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 
 // 辅助函数：执行shell命令
 bool OpenVPNManager::execCommand(const std::string &cmd, std::string &output)
 {
+  // 打印命令
+  std::cout << "Executing command: " << cmd << std::endl;
+
   std::array<char, 128> buffer;
-  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+  std::unique_ptr<FILE, int (*)(FILE *)> pipe(popen(cmd.c_str(), "r"), pclose);
   if (!pipe)
     return false;
   while (fgets(buffer.data(), buffer.size(), pipe.get()))
@@ -58,29 +62,75 @@ std::vector<VPNService> OpenVPNManager::listServices()
 // 创建服务
 bool OpenVPNManager::createService(const std::string &name, int port)
 {
-  // 1. 生成服务器证书
-  std::string cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa build-server-full " + name + "-server nopass";
+  // 确保使用sudo权限运行
+  if (getuid() != 0)
+  {
+    std::cerr << "Error: This operation requires root privileges. Please use sudo." << std::endl;
+    return false;
+  }
+  // 打印 检查权限正确
+  std::cout << "Checking permissions corrected." << std::endl;
+
+  /// 生成服务证书
+  /// ./easyrsa gen-req server nopass  # 生成服务器密钥对
+  ///./easyrsa sign-req server server  # 用 CA 签发服务器证书
+  std::string cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa --batch gen-req " + name + "-server nopass";
   std::string output;
   if (!execCommand(cmd, output))
     return false;
+  std::cout << "Created new request for " << name << std::endl;
 
-  // 2. 拷贝证书文件
-  auto copyFile = [](const std::string &src, const std::string &dest)
-  {
-    fs::create_directories(fs::path(dest).parent_path());
-    fs::copy(src, dest, fs::copy_options::overwrite_existing);
-  };
-
-  std::string prefix = EASY_RSA_DIR + "/pki/";
-  copyFile(prefix + "ca.crt", OVPN_DIR + "/" + name + "-ca.crt");
-  copyFile(prefix + "issued/" + name + "-server.crt", OVPN_DIR + "/" + name + "-server.crt");
-  copyFile(prefix + "private/" + name + "-server.key", OVPN_DIR + "/" + name + "-server.key");
-  copyFile(prefix + "dh.pem", OVPN_DIR + "/" + name + "-dh.pem");
-
-  // 生成TLS密钥
-  cmd = OPENVPN_BIN + " --genkey secret " + OVPN_DIR + "/" + name + "-ta.key";
+  cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa --batch sign-req server " + name + "-server";
   if (!execCommand(cmd, output))
     return false;
+  std::cout << "Signed request for " << name << std::endl;
+
+  // EASY_RSA_DIR/pki下是否存在dh.pem
+  // 不存在则生成一个
+  if (!fs::exists(EASY_RSA_DIR + "/pki/dh.pem"))
+  {
+    std::cerr << "dh.pem not found, generating..." << std::endl;
+    cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa gen-dh";
+    if (!execCommand(cmd, output))
+    {
+      std::cerr << "Failed to generate dh.pem: " << output << std::endl;
+      return false;
+    }
+  }
+
+  auto copyWithSudo = [](const std::string &src, const std::string &dest) -> bool
+  {
+    std::string cmd = "sudo cp " + src + " " + dest;
+    std::string output;
+    if (!execCommand(cmd, output))
+    {
+      std::cerr << "Failed to copy " << src << " to " << dest
+                << ": " << output << std::endl;
+      return false;
+    }
+
+    // 设置正确的文件权限
+    cmd = "sudo chmod 644 " + dest;
+    return execCommand(cmd, output);
+  };
+
+  // 证书文件拷贝（使用sudo）
+  std::string prefix = EASY_RSA_DIR + "/pki/";
+  if (!copyWithSudo(prefix + "ca.crt", OVPN_DIR + "/" + name + "-ca.crt") ||
+      !copyWithSudo(prefix + "issued/" + name + "-server.crt", OVPN_DIR + "/" + name + "-server.crt") ||
+      !copyWithSudo(prefix + "private/" + name + "-server.key", OVPN_DIR + "/" + name + "-server.key") ||
+      !copyWithSudo(prefix + "dh.pem", OVPN_DIR + "/" + name + "-dh.pem"))
+  {
+    return false;
+  }
+
+  // 生成TLS密钥（直接使用root权限）
+  cmd = "sudo " + OPENVPN_BIN + " --genkey secret " + OVPN_DIR + "/" + name + "-ta.key";
+  if (!execCommand(cmd, output))
+  {
+    std::cerr << "Failed to generate TLS key: " << output << std::endl;
+    return false;
+  }
 
   // 3. 生成配置文件
   std::ostringstream config;
@@ -262,11 +312,13 @@ bool OpenVPNManager::deleteService(const std::string &name)
 // 客户端管理
 bool OpenVPNManager::createClient(const std::string &name, const std::string &serviceName)
 {
-  std::string cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa build-client-full " + name + " nopass";
+  std::string cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa --batch build-client-full " + name + " nopass";
   std::string output;
   if (!execCommand(cmd, output))
     return false;
 
+  std::cout << "build-client-full done!" << std::endl;
+  std::cout << "Ready to build client configuration." << std::endl;
   // 生成客户端配置文件
   std::ostringstream config;
   config << "client\n"
@@ -284,6 +336,8 @@ bool OpenVPNManager::createClient(const std::string &name, const std::string &se
   // 添加证书内容
   auto addSection = [&](const std::string &file, const std::string &tag)
   {
+    // 打印日志
+    std::cout << "Adding section: " << tag << " from file: " << file << std::endl;
     if (fs::exists(file))
     {
       config << "<" << tag << ">\n";
@@ -301,9 +355,12 @@ bool OpenVPNManager::createClient(const std::string &name, const std::string &se
 
   // 写入文件
   fs::path configPath = getClientConfigPath(name, serviceName);
+  // 打印日志
+  std::cout << "Writing client config to: " << configPath << std::endl;
   fs::create_directories(configPath.parent_path());
   std::ofstream out(configPath);
   out << config.str();
+  std::cout << "Writing client config done!" << std::endl;
 
   return true;
 }
@@ -375,6 +432,27 @@ bool OpenVPNManager::revokeClient(const std::string &name, const std::string &se
   }
 
   return success;
+}
+
+std::string OpenVPNManager::getOVPNFileContent(const std::string &name, const std::string &serviceName)
+{
+
+  std::string configPath = getClientConfigPath(name, serviceName);
+  if (!fs::exists(configPath))
+  {
+    std::cerr << "Config file not found: " << configPath << std::endl;
+    return "";
+  }
+
+  std::ifstream file(configPath);
+  if (!file.is_open())
+  {
+    std::cerr << "Failed to open config file: " << configPath << std::endl;
+    return "";
+  }
+
+  std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+  return content;
 }
 
 // 获取在线客户端列表

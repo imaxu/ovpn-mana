@@ -8,12 +8,15 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/root/src/openvpn-mana/sdk/test/test_client.cpp" "CMakeFiles/test_client.dir/test/test_client.cpp.o" "gcc" "CMakeFiles/test_client.dir/test/test_client.cpp.o.d"
+  "/home/xuwh/dev/ovpn-mana/sdk/test/test_client.cpp" "CMakeFiles/test_client.dir/test/test_client.cpp.o" "gcc" "CMakeFiles/test_client.dir/test/test_client.cpp.o.d"
   )
 
-# Targets to which this target links.
-set(CMAKE_TARGET_LINKED_INFO_FILES
-  "/root/src/openvpn-mana/sdk/build/CMakeFiles/openvpn_mgr.dir/DependInfo.cmake"
+# Targets to which this target links which contain Fortran sources.
+set(CMAKE_Fortran_TARGET_LINKED_INFO_FILES
+  )
+
+# Targets to which this target links which contain Fortran sources.
+set(CMAKE_Fortran_TARGET_FORWARD_LINKED_INFO_FILES
   )
 
 # Fortran module output directory.

@@ -1,8 +1,8 @@
 file(REMOVE_RECURSE
   "CMakeFiles/openvpn_mgr.dir/src/OpenVPNManager.cpp.o"
   "CMakeFiles/openvpn_mgr.dir/src/OpenVPNManager.cpp.o.d"
-  "libopenvpn_mgr.a"
-  "libopenvpn_mgr.pdb"
+  "Linux_x86_64/libopenvpn_mgr.a"
+  "Linux_x86_64/libopenvpn_mgr.pdb"
 )
 
 # Per-language clean rules from dependency scanning.
