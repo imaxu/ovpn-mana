@@ -1,3 +1,12 @@
+/**
+ * @file ovpn-mana.hpp
+ * @brief OpenVPN管理器动态库头文件
+ * @author xuwh (imaxu@sina.com)
+ * @date 2025-04-26
+ * @version 1.0
+ * @note 一系列支持对OpenVPN服务进行操作的API
+ */
+
 #ifndef OVPN_MANA_HPP
 #define OVPN_MANA_HPP
 
@@ -44,7 +53,7 @@ extern "C"
   /// @param  port  服务端口
   /// @return  错误码
   /// @note    该函数会创建一个OpenVPN服务，并返回错误码。服务名称和端口号必须合法。
-  LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_create_service(ovpn_mana_handle_t handle, const char *name, int port);
+  LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_create_service(ovpn_mana_handle_t handle, const char *name, const char* subnet, int port);
 
   /// @brief  启动OpenVPN服务
   /// @param  handle  句柄
@@ -80,7 +89,7 @@ extern "C"
   /// @param  name  客户端名称
   /// @return  错误码
   /// @note    该函数会创建一个OpenVPN客户端，并返回错误码。客户端名称和服务名称必须合法。
-  LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_create_client(ovpn_mana_handle_t handle, const char *service_name, const char *name);
+  LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_create_client(ovpn_mana_handle_t handle, const char *service_name, const char *name, const char* wanip);
 
   /// @brief  吊销OpenVPN客户端
   /// @param  handle  句柄

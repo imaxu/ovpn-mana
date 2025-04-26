@@ -26,6 +26,7 @@ bool OpenVPNManager::execCommand(const std::string &cmd, std::string &output)
   {
     output += buffer.data();
   }
+  std::cout << "Executing command result: " << output << std::endl;
   return true;
 }
 
@@ -60,7 +61,7 @@ std::vector<VPNService> OpenVPNManager::listServices()
 }
 
 // 创建服务
-bool OpenVPNManager::createService(const std::string &name, int port)
+bool OpenVPNManager::createService(const std::string &name, const std::string& subnet, int port)
 {
   // 确保使用sudo权限运行
   if (getuid() != 0)
@@ -142,7 +143,7 @@ bool OpenVPNManager::createService(const std::string &name, int port)
          << "key " << name << "-server.key\n"
          << "dh " << name << "-dh.pem\n"
          << "tls-auth " << name << "-ta.key 0\n"
-         << "server 10.8.0.0 255.255.255.0\n"
+         << "server " << subnet << " 255.255.255.0\n"
          << "keepalive 10 120\n"
          << "persist-key\n"
          << "persist-tun\n"
@@ -167,7 +168,7 @@ bool OpenVPNManager::isServiceActive(const std::string &name)
 {
   std::string cmd = SYSTEMCTL_BIN + " is-active openvpn@" + name + "-server";
   std::string output;
-  return execCommand(cmd, output) && output.find("active") != std::string::npos;
+  return execCommand(cmd, output) && output.find("inactive") == std::string::npos;
 }
 
 // 检查服务是否启用
@@ -194,7 +195,7 @@ bool OpenVPNManager::startService(const std::string &name)
 // 停止服务
 bool OpenVPNManager::stopService(const std::string &name)
 {
-  std::string cmd = SYSTEMCTL_BIN + " stop openvpn@" + name + "-server";
+  std::string cmd = "sudo " + SYSTEMCTL_BIN + " stop openvpn@" + name + "-server";
   std::string output;
   if (!execCommand(cmd, output))
   {
@@ -310,8 +311,33 @@ bool OpenVPNManager::deleteService(const std::string &name)
 }
 
 // 客户端管理
-bool OpenVPNManager::createClient(const std::string &name, const std::string &serviceName)
+bool OpenVPNManager::createClient(const std::string &name, const std::string &serviceName, const std::string &wanip)
 {
+
+  // 读取指定服务的配置文件
+  std::string serviceConfigPath = getServiceConfigPath(serviceName);
+  if (!fs::exists(serviceConfigPath))
+  {
+    std::cerr << "Service config file not found: " << serviceConfigPath << std::endl;
+    return false;
+  }
+  std::ifstream configFile(serviceConfigPath);
+  if (!configFile.is_open())
+  {
+    std::cerr << "Failed to open service config file: " << serviceConfigPath << std::endl;
+    return false;
+  }
+  std::string configContent((std::istreambuf_iterator<char>(configFile)),
+                             std::istreambuf_iterator<char>());
+  configFile.close();
+
+  // 从配置文件里读取端口号
+  std::string portStr = configContent.substr(configContent.find("port ") + 5);
+  portStr = portStr.substr(0, portStr.find("\n"));
+  int port = std::stoi(portStr);
+  std::cout << "Service port: " << port << std::endl;
+
+
   std::string cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa --batch build-client-full " + name + " nopass";
   std::string output;
   if (!execCommand(cmd, output))
@@ -324,7 +350,7 @@ bool OpenVPNManager::createClient(const std::string &name, const std::string &se
   config << "client\n"
          << "dev tun\n"
          << "proto udp\n"
-         << "remote YOUR_SERVER_IP 1194\n"
+         << "remote " << wanip << " " << port << "\n"
          << "resolv-retry infinite\n"
          << "nobind\n"
          << "persist-key\n"
@@ -580,4 +606,9 @@ std::vector<VPNClient> OpenVPNManager::getOnlineClients(const std::string &servi
 std::string OpenVPNManager::getClientConfigPath(const std::string &name, const std::string &serviceName)
 {
   return OVPN_DIR + "/client-configs/" + serviceName + "/" + name + ".ovpn";
+}
+
+std::string OpenVPNManager::getServiceConfigPath(const std::string &name)
+{
+  return OVPN_DIR + "/" + name + "-server.conf";
 }

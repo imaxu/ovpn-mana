@@ -30,14 +30,14 @@ class OpenVPNManager
 public:
   // 服务管理
   static std::vector<VPNService> listServices();
-  static bool createService(const std::string &name, int port = 1194);
+  static bool createService(const std::string &name, const std::string &subnet, int port = 1194);
   static bool startService(const std::string &name);
   static bool stopService(const std::string &name);
   static bool restartService(const std::string &name);
   static bool deleteService(const std::string &name);
 
   // 客户端管理
-  static bool createClient(const std::string &name, const std::string &serviceName);
+  static bool createClient(const std::string &name, const std::string &serviceName, const std::string &wanip);
   static bool revokeClient(const std::string &name, const std::string &serviceName);
   static std::vector<VPNClient> getOnlineClients(const std::string &serviceName);
   static std::string getOVPNFileContent(const std::string &name, const std::string &serviceName);

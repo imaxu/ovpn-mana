@@ -1,3 +1,9 @@
+/**
+ * @file ovpn-mana.cpp
+ * @brief OpenVPN管理器动态库文件
+ * 
+ */
+
 
 #include "ovpn-mana.hpp"
 #include "OpenVPNManager.hpp"
@@ -84,13 +90,13 @@ LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_list_services(ovpn_mana_handle_t handl
 /// @param  port  服务端口
 /// @return  错误码
 /// @note    该函数会创建一个OpenVPN服务，并返回错误码。服务名称和端口号必须合法。
-LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_create_service(ovpn_mana_handle_t handle, const char *name, int port)
+LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_create_service(ovpn_mana_handle_t handle, const char *name, const char* subnet, int port)
 {
 
   try
   {
     OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
-    if (manager->createService(name, port))
+    if (manager->createService(name, subnet, port))
     {
       return OVPN_ERR_SUCCESS; // 成功
     }
@@ -220,13 +226,13 @@ LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_delete_service(ovpn_mana_handle_t hand
 /// @param  name  客户端名称
 /// @return  错误码
 /// @note    该函数会创建一个OpenVPN客户端，并返回错误码。客户端名称和服务名称必须合法。
-LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_create_client(ovpn_mana_handle_t handle, const char *service_name, const char *name)
+LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_create_client(ovpn_mana_handle_t handle, const char *service_name, const char *name, const char* wanip)
 {
   try
   {
 
     OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
-    if (manager->createClient(name, service_name))
+    if (manager->createClient(name, service_name, wanip))
     {
       return OVPN_ERR_SUCCESS; // 成功
     }

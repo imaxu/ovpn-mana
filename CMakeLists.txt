@@ -14,7 +14,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 可配置编译参数
-set(EASY_RSA_DIR "/root/easy-rsa" CACHE PATH "Easy-RSA目录")
+set(EASY_RSA_DIR "/home/xuwh/easy-rsa" CACHE PATH "Easy-RSA目录")
 set(OVPN_DIR "/etc/openvpn" CACHE PATH "OpenVPN配置目录")
 
 # 定义输出路径
@@ -42,37 +42,20 @@ find_package(Threads REQUIRED)
 # 配置选项
 option(BUILD_TESTS "Build tests" ON)
 
-# 主库
-add_library(openvpn_mgr
-    src/OpenVPNManager.cpp
-)
-
-
-
-
 # 公开的动态库
 add_library(ovpn-mana SHARED
     src/ovpn-mana.cpp
     src/OpenVPNManager.cpp
 )
-target_link_libraries(ovpn-mana PRIVATE openvpn_mgr)
 set_target_properties(ovpn-mana PROPERTIES
     VERSION ${PROJECT_MAIN_VERSION}
     SOVERSION 1
     PUBLIC_HEADER include/ovpn-mana.h
 )
-install(TARGETS ovpn-mana
-    LIBRARY DESTINATION lib
-    PUBLIC_HEADER DESTINATION include
-)
-# 安装头文件
-install(FILES include/ovpn-mana.h
-    DESTINATION include
-)
 
 # 拷贝ovpn-mana.ini到输出目录
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/ovpn-mana.ini
-    DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
+    DESTINATION ${PROJECT_OUTPUT_DIR}
 )
 
 
@@ -88,7 +71,6 @@ if(BUILD_TESTS)
         test/test_client.cpp
     )
     target_link_libraries(test_client PRIVATE 
-        openvpn_mgr
         GTest::GTest 
         GTest::Main
         Threads::Threads
