@@ -1,5 +1,40 @@
 ## OVPN-MANA
 
+### 运行环境
+
+#### Linux/Ubuntu/Debian
+
+```bash
+sudo apt update
+sudo apt install openvpn easy-rsa
+```
+
+#### Windows
+
+openvpn easy-rsa
+
+#### 设置环境变量
+
+在 `CMakeLists.txt` 中修改以下路径为实际路径
+
+```cmake
+# 可配置编译参数
+set(EASY_RSA_DIR "/home/YOURNAME/easy-rsa" CACHE PATH "Easy-RSA")
+set(OVPN_DIR "/etc/openvpn" CACHE PATH "OpenVPNPath")
+```
+
+#### 编译
+
+```bash
+
+git clone xxxx yyy # 克隆仓库到本地
+
+cd yyy
+mkdir build && cd build
+cmake .. && make
+
+```
+
 ### APIs
 
 ##### 基础接口

@@ -53,12 +53,6 @@ set_target_properties(ovpn-mana PROPERTIES
     PUBLIC_HEADER include/ovpn-mana.h
 )
 
-# 拷贝ovpn-mana.ini到输出目录
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/ovpn-mana.ini
-    DESTINATION ${PROJECT_OUTPUT_DIR}
-)
-
-
 # 主程序
 add_executable(openvpnmgr
     src/main.cpp
