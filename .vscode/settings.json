@@ -1,5 +1,6 @@
 {
   "files.associations": {
+    ".fantomasignore": "ignore",
     "*.ino": "cpp",
     "*.vue": "vue",
     "*.in": "cpp",
@@ -73,6 +74,9 @@
     "streambuf": "cpp",
     "thread": "cpp",
     "cinttypes": "cpp",
-    "variant": "cpp"
+    "variant": "cpp",
+    "filesystem": "cpp",
+    "xlocinfo": "cpp",
+    "xstring": "cpp"
   }
 }

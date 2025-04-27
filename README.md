@@ -10,6 +10,8 @@
 
 ### 运行环境
 
+<span style="color:orange">注意： 因为当前版本需要在 ```ROOT``` 权限下方能正常运行，如需被WEB程序调用，需要自行解决权限提升的问题。</span>
+
 #### Linux/Ubuntu/Debian
 
 ```bash
@@ -55,9 +57,22 @@ cmake .. && make
 
 ```
 
-### 项目目录
+### 项目结构
 
-
+```
+source
+├── include                     # 头文件目录
+│   ├── config.hpp              # 运行环境的配置头文件
+│   ├── OpenVPNManager.hpp      # 管理器的头文件
+│   ├── ovpn-mana.hpp           # 导出库的头文件library
+│   └── sdk.types.hpp           # 库类型定义头文件
+├── src                         # Source code directory
+│   ├── main.cpp                # 实用程序openvpnmgr的源代码
+│   ├── OpenVPNManager.cpp      # 管理器实现代码
+│   └── ovpn-mana.cpp           # 导出库的源代码
+├── test                        # 测试程序目录
+└── CMakeLists.txt              # CMake build script
+```
 
 ### 库 APIs
 
