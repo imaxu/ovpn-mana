@@ -263,6 +263,7 @@ bool OpenVPNManager::deleteService(const std::string &name)
     OVPN_SERVER_CONF_DIR + "/" + name + "/server.key",
     OVPN_SERVER_CONF_DIR + "/" + name + "/dh.pem",
     OVPN_SERVER_CONF_DIR + "/" + name + "/ta.key",
+    OVPN_SERVER_CONF_DIR + "/" + name + "/ipp.txt",
     OVPN_SERVER_CONF_DIR + "/" + name + "/status.log"};
 
   bool success = true;
