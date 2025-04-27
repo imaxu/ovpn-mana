@@ -153,7 +153,7 @@ bool OpenVPNManager::createService(const std::string &name, const std::string& s
          << "keepalive 10 120\n"
          << "persist-key\n"
          << "persist-tun\n"
-         << "ifconfig-pool-persist " << OVPN_SERVER_CONF_DIR << "/" << name << "/ipp.txt"
+         << "ifconfig-pool-persist " << OVPN_SERVER_CONF_DIR << "/" << name << "/ipp.txt\n"
          << "status " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/status.log\n"
          << "verb 3\n";
 
