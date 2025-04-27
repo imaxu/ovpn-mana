@@ -8,7 +8,7 @@
 #include <iostream>
 #include <memory>
 #include <algorithm>
-#if define(UNIX) || defined(__unix__) || defined(__APPLE__)
+#if defined(UNIX) || defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>
 #else
 #define getuid() 0
