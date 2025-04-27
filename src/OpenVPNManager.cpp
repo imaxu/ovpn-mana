@@ -117,16 +117,16 @@ bool OpenVPNManager::createService(const std::string &name, const std::string& s
 
   // 证书文件拷贝（使用sudo）
   std::string prefix = EASY_RSA_DIR + "/pki/";
-  if (!copyWithSudo(prefix + "ca.crt", OVPN_DIR + "/" + name + "-ca.crt") ||
-      !copyWithSudo(prefix + "issued/" + name + "-server.crt", OVPN_DIR + "/" + name + "-server.crt") ||
-      !copyWithSudo(prefix + "private/" + name + "-server.key", OVPN_DIR + "/" + name + "-server.key") ||
-      !copyWithSudo(prefix + "dh.pem", OVPN_DIR + "/" + name + "-dh.pem"))
+  if (!copyWithSudo(prefix + "ca.crt", OVPN_SERVER_CONF_DIR + "/" + name + "/ca.crt") ||
+      !copyWithSudo(prefix + "issued/" + name + "-server.crt", OVPN_SERVER_CONF_DIR + "/" + name + "/server.crt") ||
+      !copyWithSudo(prefix + "private/" + name + "-server.key", OVPN_SERVER_CONF_DIR + "/" + name + "/server.key") ||
+      !copyWithSudo(prefix + "dh.pem", OVPN_SERVER_CONF_DIR + "/" + name + "/dh.pem"))
   {
     return false;
   }
 
   // 生成TLS密钥（直接使用root权限）
-  cmd = "sudo " + OPENVPN_BIN + " --genkey secret " + OVPN_DIR + "/" + name + "-ta.key";
+  cmd = "sudo " + OPENVPN_BIN + " --genkey secret " + OVPN_SERVER_CONF_DIR + "/" + name + "/ta.key";
   if (!execCommand(cmd, output))
   {
     std::cerr << "Failed to generate TLS key: " << output << std::endl;
@@ -138,16 +138,16 @@ bool OpenVPNManager::createService(const std::string &name, const std::string& s
   config << "port " << port << "\n"
          << "proto udp\n"
          << "dev tun\n"
-         << "ca " << name << "-ca.crt\n"
-         << "cert " << name << "-server.crt\n"
-         << "key " << name << "-server.key\n"
-         << "dh " << name << "-dh.pem\n"
-         << "tls-auth " << name << "-ta.key 0\n"
+         << "ca " << OVPN_SERVER_CONF_DIR << "/" name << "/ca.crt\n"
+         << "cert " << OVPN_SERVER_CONF_DIR << "/" name << "/server.crt\n"
+         << "key " << OVPN_SERVER_CONF_DIR << "/" name << "/server.key\n"
+         << "dh " << OVPN_SERVER_CONF_DIR << "/" name << "/dh.pem\n"
+         << "tls-auth " << OVPN_SERVER_CONF_DIR << "/" name << "/ta.key 0\n"
          << "server " << subnet << " 255.255.255.0\n"
          << "keepalive 10 120\n"
          << "persist-key\n"
          << "persist-tun\n"
-         << "status " << name << "-status.log\n"
+         << "status " << OVPN_SERVER_CONF_DIR << "/" name << "/status.log\n"
          << "verb 3\n";
 
   std::ofstream confFile(OVPN_DIR + "/" + name + "-server.conf");
@@ -250,13 +250,13 @@ bool OpenVPNManager::deleteService(const std::string &name)
 
   // 3. 删除配置文件
   std::vector<std::string> filesToDelete = {
-      OVPN_DIR + "/" + name + "-server.conf",
-      OVPN_DIR + "/" + name + "-ca.crt",
-      OVPN_DIR + "/" + name + "-server.crt",
-      OVPN_DIR + "/" + name + "-server.key",
-      OVPN_DIR + "/" + name + "-dh.pem",
-      OVPN_DIR + "/" + name + "-ta.key",
-      OVPN_DIR + "/" + name + "-status.log"};
+    OVPN_DIR + "/" + name + "-server.conf",
+    OVPN_SERVER_CONF_DIR + "/" + name + "/ca.crt",
+    OVPN_SERVER_CONF_DIR + "/" + name + "/server.crt",
+    OVPN_SERVER_CONF_DIR + "/" + name + "/server.key",
+    OVPN_SERVER_CONF_DIR + "/" + name + "/dh.pem",
+    OVPN_SERVER_CONF_DIR + "/" + name + "/ta.key",
+    OVPN_SERVER_CONF_DIR + "/" + name + "/status.log"};
 
   bool success = true;
   for (const auto &file : filesToDelete)
