@@ -105,6 +105,22 @@ bool OpenVPNManager::createService(const std::string &name, const std::string& s
     }
   }
 
+  // 如果不存在目录OVPN_SERVER_CONF_DIR + "/" + name + "/ccd" 则创建一个
+  fs::path ccdDir(OVPN_SERVER_CONF_DIR + "/" + name + "/ccd");
+  if (!fs::exists(ccdDir))
+  {
+    try
+    {
+      fs::create_directories(ccdDir);
+    }
+    catch (const fs::filesystem_error &e)
+    {
+      std::cerr << "Failed to create directory " << ccdDir << ": " << e.what() << std::endl;
+      return false;
+    }
+  }
+
+  // 定义带sudo拷贝函数
   auto copyWithSudo = [](const std::string &src, const std::string &dest) -> bool
   {
     std::string cmd = "sudo cp " + src + " " + dest;
@@ -141,7 +157,9 @@ bool OpenVPNManager::createService(const std::string &name, const std::string& s
 
   // 3. 生成配置文件
   std::ostringstream config;
-  config << "port " << port << "\n"
+  config
+         << "topology subnet\n" 
+         << "port " << port << "\n"
          << "proto udp\n"
          << "dev tun\n"
          << "ca " << OVPN_SERVER_CONF_DIR << "/" << name << "/ca.crt\n"
@@ -154,6 +172,7 @@ bool OpenVPNManager::createService(const std::string &name, const std::string& s
          << "persist-key\n"
          << "persist-tun\n"
          << "ifconfig-pool-persist " << OVPN_SERVER_CONF_DIR << "/" << name << "/ipp.txt\n"
+         << "client-config-dir " << OVPN_SERVER_CONF_DIR << "/" << name << "/ccd\n"
          << "status " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/status.log\n"
          << "verb 3\n";
 
@@ -282,6 +301,18 @@ bool OpenVPNManager::deleteService(const std::string &name)
       }
     }
   }
+
+  // 删除目录及内所有文件 OVPN_SERVER_CONF_DIR + "/" + name以及子目录
+  try
+  {
+    fs::remove_all(OVPN_SERVER_CONF_DIR + "/" + name);
+  }
+  catch (const fs::filesystem_error &e)
+  {
+    std::cerr << "Failed to delete directory " << OVPN_SERVER_CONF_DIR + "/" + name << ": " << e.what() << std::endl;
+    success = false;
+  }
+
 
   // 4. 从easy-rsa吊销服务器证书
   cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa --batch revoke " + name + "-server";
