@@ -522,19 +522,19 @@ std::vector<VPNClient> OpenVPNManager::getOnlineClients(const std::string &servi
     if (line.empty())
       continue;
 
-    if (line.find("CLIENT_LIST") == 0)
+    if (line.find("OpenVPN CLIENT LIST") == 0)
     {
       inClientSection = true;
       inRoutingSection = false;
       continue;
     }
-    else if (line.find("ROUTING_TABLE") == 0)
+    else if (line.find("ROUTING TABLE") == 0)
     {
       inClientSection = false;
       inRoutingSection = true;
       continue;
     }
-    else if (line.find("GLOBAL_STATS") == 0)
+    else if (line.find("GLOBAL STATS") == 0)
     {
       break;
     }
