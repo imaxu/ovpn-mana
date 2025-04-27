@@ -1,4 +1,4 @@
-#include "OpenVPNManager.hpp"
+﻿#include "OpenVPNManager.hpp"
 #include "config.hpp"
 #include <iomanip>
 #include <fstream>
@@ -8,7 +8,13 @@
 #include <iostream>
 #include <memory>
 #include <algorithm>
+#if defined(UNIX) || defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>
+#else
+#define getuid() 0
+#define popen _popen
+#define pclose _pclose
+#endif
 
 namespace fs = std::filesystem;
 
@@ -139,15 +145,16 @@ bool OpenVPNManager::createService(const std::string &name, const std::string& s
          << "proto udp\n"
          << "dev tun\n"
          << "ca " << OVPN_SERVER_CONF_DIR << "/" << name << "/ca.crt\n"
-         << "cert " << OVPN_SERVER_CONF_DIR << "/" << name << "/server.crt\n"
-         << "key " << OVPN_SERVER_CONF_DIR << "/" << name << "/server.key\n"
-         << "dh " << OVPN_SERVER_CONF_DIR << "/" << name << "/dh.pem\n"
-         << "tls-auth " << OVPN_SERVER_CONF_DIR << "/" << name << "/ta.key 0\n"
+         << "cert " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/server.crt\n"
+         << "key " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/server.key\n"
+         << "dh " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/dh.pem\n"
+         << "tls-auth " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/ta.key 0\n"
          << "server " << subnet << " 255.255.255.0\n"
          << "keepalive 10 120\n"
          << "persist-key\n"
          << "persist-tun\n"
-         << "status " << OVPN_SERVER_CONF_DIR << "/" << name << "/status.log\n"
+         << "ifconfig-pool-persist " << OVPN_SERVER_CONF_DIR << "/" << name << "/ipp.txt\n"
+         << "status " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/status.log\n"
          << "verb 3\n";
 
   std::ofstream confFile(OVPN_DIR + "/" + name + "-server.conf");
@@ -256,6 +263,7 @@ bool OpenVPNManager::deleteService(const std::string &name)
     OVPN_SERVER_CONF_DIR + "/" + name + "/server.key",
     OVPN_SERVER_CONF_DIR + "/" + name + "/dh.pem",
     OVPN_SERVER_CONF_DIR + "/" + name + "/ta.key",
+    OVPN_SERVER_CONF_DIR + "/" + name + "/ipp.txt",
     OVPN_SERVER_CONF_DIR + "/" + name + "/status.log"};
 
   bool success = true;
@@ -376,7 +384,7 @@ bool OpenVPNManager::createClient(const std::string &name, const std::string &se
   addSection(EASY_RSA_DIR + "/pki/ca.crt", "ca");
   addSection(EASY_RSA_DIR + "/pki/issued/" + name + ".crt", "cert");
   addSection(EASY_RSA_DIR + "/pki/private/" + name + ".key", "key");
-  addSection(OVPN_DIR + "/" + serviceName + "-ta.key", "tls-auth");
+  addSection(OVPN_SERVER_CONF_DIR + "/" + serviceName + "/ta.key", "tls-auth");
   config << "key-direction 1\n";
 
   // 写入文件
@@ -485,19 +493,13 @@ std::string OpenVPNManager::getOVPNFileContent(const std::string &name, const st
 std::vector<VPNClient> OpenVPNManager::getOnlineClients(const std::string &serviceName)
 {
   std::vector<VPNClient> clients;
-  std::string statusFile = OVPN_DIR + "/" + serviceName + "-status.log";
+  std::string statusFile = OVPN_SERVER_CONF_DIR + "/" + serviceName + "/status.log";
 
-  if (!fs::exists(statusFile))
-  {
-    std::cerr << "Status file not found: " << statusFile << std::endl;
-    return clients;
-  }
-
+  // 检查文件是否存在
   std::ifstream file(statusFile);
-  if (!file.is_open())
-  {
-    std::cerr << "Failed to open status file: " << statusFile << std::endl;
-    return clients;
+  if (!file.is_open()) {
+      std::cerr << "[ERROR] Cannot open status file: " << statusFile << std::endl;
+      return clients;
   }
 
   std::string line;
@@ -505,98 +507,95 @@ std::vector<VPNClient> OpenVPNManager::getOnlineClients(const std::string &servi
   bool inRoutingSection = false;
   std::map<std::string, VPNClient> clientMap;
 
-  while (std::getline(file, line))
-  {
-    // 清理行尾
-    line.erase(std::remove_if(line.begin(), line.end(),
-                              [](char c)
-                              { return c == '\r' || c == '\n'; }),
-               line.end());
+  // 调试：打印文件内容（可选）
+  // std::cout << "--- File Content ---\n";
+  // while (std::getline(file, line)) std::cout << line << "\n";
+  // file.clear();
+  // file.seekg(0);
 
-    if (line.empty())
-      continue;
+  while (std::getline(file, line)) {
+      // 移除行尾换行符
+      line.erase(std::remove_if(line.begin(), line.end(), 
+                 [](char c) { return c == '\r' || c == '\n'; }), 
+                 line.end());
 
-    if (line.find("CLIENT_LIST") == 0)
-    {
-      inClientSection = true;
-      inRoutingSection = false;
-      continue;
-    }
-    else if (line.find("ROUTING_TABLE") == 0)
-    {
-      inClientSection = false;
-      inRoutingSection = true;
-      continue;
-    }
-    else if (line.find("GLOBAL_STATS") == 0)
-    {
-      break;
-    }
+      if (line.empty()) continue;
 
-    if (inClientSection)
-    {
-      std::vector<std::string> tokens;
-      std::istringstream iss(line);
-      std::string token;
-
-      while (std::getline(iss, token, ','))
-      {
-        tokens.push_back(token);
+      // 检测区块
+      if (line.find("OpenVPN CLIENT LIST") != std::string::npos) {
+          inClientSection = true;
+          inRoutingSection = false;
+          continue;
+      } else if (line.find("ROUTING TABLE") != std::string::npos) {
+          inClientSection = false;
+          inRoutingSection = true;
+          continue;
+      } else if (line.find("GLOBAL STATS") != std::string::npos) {
+          break;  // 结束解析
       }
 
-      if (tokens.size() >= 6)
-      {
-        VPNClient client;
-        client.name = tokens[0];
-        client.realIp = tokens[1];
-        try
-        {
-          client.bytesReceived = std::stoull(tokens[2]);
-          client.bytesSent = std::stoull(tokens[3]);
-        }
-        catch (...)
-        {
-          client.bytesReceived = 0;
-          client.bytesSent = 0;
-        }
-        client.since = tokens[4];
-        clientMap[client.name] = client;
-      }
-    }
-    else if (inRoutingSection)
-    {
-      std::vector<std::string> tokens;
-      std::istringstream iss(line);
-      std::string token;
+      // 解析客户端列表
+      if (inClientSection) {
+          // 跳过表头（例如 "Common Name,Real Address,Bytes Received,Bytes Sent,Connected Since"）
+          if (line.find("Common Name") != std::string::npos) continue;
 
-      while (std::getline(iss, token, ','))
-      {
-        tokens.push_back(token);
-      }
+          std::istringstream iss(line);
+          std::vector<std::string> tokens;
+          std::string token;
 
-      if (tokens.size() >= 3)
-      {
-        std::string vpnIp = tokens[0];
-        std::string name = tokens[1];
+          // 按逗号分割
+          while (std::getline(iss, token, ',')) {
+              tokens.push_back(token);
+          }
 
-        if (clientMap.count(name))
-        {
-          clientMap[name].vpnIp = vpnIp;
-        }
+          if (tokens.size() >= 5) {
+              VPNClient client;
+              client.name = tokens[0];
+              client.realIp = tokens[1];
+              try {
+                  client.bytesReceived = std::stoull(tokens[2]);
+                  client.bytesSent = std::stoull(tokens[3]);
+              } catch (...) {
+                  client.bytesReceived = 0;
+                  client.bytesSent = 0;
+              }
+              client.since = tokens[4];
+              clientMap[client.name] = client;
+          }
       }
-    }
+      // 解析路由表
+      else if (inRoutingSection) {
+          // 跳过表头（例如 "Virtual Address,Common Name,Real Address,Last Ref"）
+          if (line.find("Virtual Address") != std::string::npos) continue;
+
+          std::istringstream iss(line);
+          std::vector<std::string> tokens;
+          std::string token;
+
+          while (std::getline(iss, token, ',')) {
+              tokens.push_back(token);
+          }
+
+          if (tokens.size() >= 2) {
+              std::string vpnIp = tokens[0];
+              std::string name = tokens[1];
+
+              if (clientMap.count(name)) {
+                  clientMap[name].vpnIp = vpnIp;
+              }
+          }
+      }
   }
 
-  // 转换为vector并排序
-  for (auto &pair : clientMap)
-  {
-    clients.push_back(pair.second);
+  // 转换为 vector
+  for (const auto &pair : clientMap) {
+      clients.push_back(pair.second);
   }
 
+  // 按连接时间排序
   std::sort(clients.begin(), clients.end(),
-            [](const VPNClient &a, const VPNClient &b)
-            {
-              return a.since < b.since;
+            [](const VPNClient &a, const VPNClient &b) {
+                return a.since < b.since;
             });
 
   return clients;
