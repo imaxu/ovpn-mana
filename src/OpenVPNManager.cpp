@@ -1,4 +1,4 @@
-#include "OpenVPNManager.hpp"
+﻿#include "OpenVPNManager.hpp"
 #include "config.hpp"
 #include <iomanip>
 #include <fstream>
@@ -8,7 +8,13 @@
 #include <iostream>
 #include <memory>
 #include <algorithm>
+#if define(UNIX) || defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>
+#else
+#define getuid() 0
+#define popen _popen
+#define pclose _pclose
+#endif
 
 namespace fs = std::filesystem;
 
@@ -138,16 +144,16 @@ bool OpenVPNManager::createService(const std::string &name, const std::string& s
   config << "port " << port << "\n"
          << "proto udp\n"
          << "dev tun\n"
-         << "ca " << OVPN_SERVER_CONF_DIR << "/" name << "/ca.crt\n"
-         << "cert " << OVPN_SERVER_CONF_DIR << "/" name << "/server.crt\n"
-         << "key " << OVPN_SERVER_CONF_DIR << "/" name << "/server.key\n"
-         << "dh " << OVPN_SERVER_CONF_DIR << "/" name << "/dh.pem\n"
-         << "tls-auth " << OVPN_SERVER_CONF_DIR << "/" name << "/ta.key 0\n"
+         << "ca " << OVPN_SERVER_CONF_DIR << "/" << name << "/ca.crt\n"
+         << "cert " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/server.crt\n"
+         << "key " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/server.key\n"
+         << "dh " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/dh.pem\n"
+         << "tls-auth " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/ta.key 0\n"
          << "server " << subnet << " 255.255.255.0\n"
          << "keepalive 10 120\n"
          << "persist-key\n"
          << "persist-tun\n"
-         << "status " << OVPN_SERVER_CONF_DIR << "/" name << "/status.log\n"
+         << "status " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/status.log\n"
          << "verb 3\n";
 
   std::ofstream confFile(OVPN_DIR + "/" + name + "-server.conf");
@@ -485,7 +491,7 @@ std::string OpenVPNManager::getOVPNFileContent(const std::string &name, const st
 std::vector<VPNClient> OpenVPNManager::getOnlineClients(const std::string &serviceName)
 {
   std::vector<VPNClient> clients;
-  std::string statusFile = OVPN_DIR + "/" + serviceName + "-status.log";
+  std::string statusFile = OVPN_SERVER_CONF_DIR + "/" + serviceName + "/status.log";
 
   if (!fs::exists(statusFile))
   {

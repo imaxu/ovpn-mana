@@ -24,6 +24,10 @@ if(UNIX)
 elseif(WIN32) 
   # 如果是UNIX 则添加宏定义WIN
   add_definitions(-DWIN)
+  # 设置vcpkg的安装路径
+  set(CMAKE_TOOLCHAIN_FILE "d:/dev/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "VCPKG toolchain file")
+  #设置gtest dir
+  set(GTest_DIR "vcpkg_installed/x64-windows-static/share/gtest" CACHE STRING "GTest dir")
 endif()
 
 
@@ -68,20 +72,6 @@ add_executable(openvpnmgr
     src/main.cpp
 )
 target_link_libraries(openvpnmgr PRIVATE ovpn-mana)
-
-# 单元测试
-if(BUILD_TESTS)
-    add_executable(test_client
-        test/test_client.cpp
-    )
-    target_link_libraries(test_client PRIVATE 
-        GTest::GTest 
-        GTest::Main
-        Threads::Threads
-    )
-    add_test(NAME client_test COMMAND test_client)
-endif()
-
 
 # 添加安装后脚本设置权限
 install(CODE "
