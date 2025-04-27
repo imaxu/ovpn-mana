@@ -1,5 +1,13 @@
 ## OVPN-MANA
 
+一个OpenVPN命令行的c++库以及基于库的简易管理程序。
+
+[![Supported Versions](https://img.shields.io/badge/cxx-17-blue)](https://github.com/imaxu/ovpn-mana.git)
+[![Supported Versions](https://img.shields.io/badge/easy__rsa-3.2.2+-blue)](https://github.com/OpenVPN/easy-rsa.git)
+[![Supported Versions](https://img.shields.io/badge/openvpn-2.6+-blue)](https://github.com/OpenVPN/easy-rsa.git)
+[![Supported Versions](https://img.shields.io/badge/version-1.0.0.1-blue)](https://github.com/imaxu/ovpn-mana.git)
+[![Supported Versions](https://img.shields.io/badge/CI-pass-green)](https://github.com/imaxu/ovpn-mana.git)
+
 ### 运行环境
 
 #### Linux/Ubuntu/Debian
@@ -13,29 +21,41 @@ sudo apt install openvpn easy-rsa
 
 openvpn easy-rsa
 
+#### 克隆仓库
+
+```shell
+git clone https://github.com/imaxu/ovpn-mana.git # 克隆仓库到本地
+cd ovpn-mana
+```
+
 #### 设置环境变量
 
 在 `CMakeLists.txt` 中修改以下路径为实际路径
 
 ```cmake
 # 可配置编译参数
-set(EASY_RSA_DIR "/home/YOURNAME/easy-rsa" CACHE PATH "Easy-RSA")
-set(OVPN_DIR "/etc/openvpn" CACHE PATH "OpenVPNPath")
+set(EASY_RSA_DIR "<YOUR easy-rsa PATH>" CACHE PATH "Easy-RSA")
+set(OVPN_DIR "<YOUR openvpn PATH>" CACHE PATH "OpenVPNPath")
+```
+
+或者在编译时
+
+```shell
+cd ${PROJECT_SRC}
+rm ./include/config.hpp
+cmake -D EASY_RSA_DIR="<YOUR easy-rsa PATH>" -D OVPN_DIR="<YOUR openvpn PATH>"
 ```
 
 #### 编译
 
 ```bash
 
-git clone xxxx yyy # 克隆仓库到本地
-
-cd yyy
 mkdir build && cd build
 cmake .. && make
 
 ```
 
-### APIs
+### 库 APIs
 
 ##### 基础接口
 

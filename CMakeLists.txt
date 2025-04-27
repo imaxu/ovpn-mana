@@ -14,7 +14,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 可配置编译参数
-set(EASY_RSA_DIR "/home/xuwh/easy-rsa" CACHE PATH "Easy-RSA目录")
+set(EASY_RSA_DIR "/home/YOURNAME/easy-rsa" CACHE PATH "Easy-RSA目录")
 set(OVPN_DIR "/etc/openvpn" CACHE PATH "OpenVPN配置目录")
 
 # 平台兼容定义
