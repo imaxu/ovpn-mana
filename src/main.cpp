@@ -24,6 +24,13 @@
 #include <cstring>
 #include "ovpn-mana.hpp"
 
+#if defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_WCE) || defined(WIN)
+#define getuid() 0
+#else
+#include <unistd.h>
+#endif // DEBUG
+
+
 /** 服务相关命令处理函数 */
 
 /// @brief 列出服务
@@ -169,6 +176,8 @@ int main(int argc, char *argv[])
   std::cout << "\t\tOpenVPN Command Line Manager" << std::endl;
   std::cout << "=====================================================================================" << std::endl;
 
+  bool is_root = getuid() == 0;
+
   // 创建OpenVPN管理器实例
   ovpn_mana_handle_t handle = ovpn_mana_create();
   if (!handle)
@@ -177,9 +186,16 @@ int main(int argc, char *argv[])
     return -1;
   }
 
+  if(!is_root) {
+
+    std::cerr << "\033[31mPlease run this command line program with ROOT privileges\033[0m" << std::endl;
+    return -1;
+  }
+
   // 检查命令行参数
   if (argc < 2)
   {
+    
     std::cerr << "Usage: " << argv[0] << " <command> [options]" << std::endl;
     std::cerr << "Commands:" << std::endl;
     std::cerr << "  service -l                                  List OpenVPN services" << std::endl;

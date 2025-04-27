@@ -17,6 +17,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(EASY_RSA_DIR "/home/xuwh/easy-rsa" CACHE PATH "Easy-RSA目录")
 set(OVPN_DIR "/etc/openvpn" CACHE PATH "OpenVPN配置目录")
 
+# 平台兼容定义
+if(UNIX)
+  # 如果是WINDOWS 则添加宏定义WIN
+  add_definitions(-DUNIX)
+elseif(WIN32) 
+  # 如果是UNIX 则添加宏定义WIN
+  add_definitions(-DWIN)
+endif()
+
+
 # 定义输出路径
 set(PROJECT_OUTPUT_DIR ${PROJECT_SOURCE_DIR}/build/${CMAKE_HOST_SYSTEM_NAME}_${CMAKE_SYSTEM_PROCESSOR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_OUTPUT_DIR})
