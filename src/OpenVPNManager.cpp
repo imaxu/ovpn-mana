@@ -382,7 +382,7 @@ bool OpenVPNManager::createClient(const std::string &name, const std::string &se
   addSection(EASY_RSA_DIR + "/pki/ca.crt", "ca");
   addSection(EASY_RSA_DIR + "/pki/issued/" + name + ".crt", "cert");
   addSection(EASY_RSA_DIR + "/pki/private/" + name + ".key", "key");
-  addSection(OVPN_DIR + "/" + serviceName + "-ta.key", "tls-auth");
+  addSection(OVPN_SERVER_CONF_DIR + "/" + serviceName + "/ta.key", "tls-auth");
   config << "key-direction 1\n";
 
   // 写入文件
