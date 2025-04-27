@@ -10,7 +10,7 @@
 
 ### 运行环境
 
-<span style="color:orange">注意： 因为当前版本需要在 ```ROOT``` 权限下方能正常运行，如需被WEB程序调用，需要自行解决权限提升的问题。</span>
+<font color="orange">注意： 因为当前版本需要在 ```ROOT``` 权限下方能正常运行，如需被WEB程序调用，需要自行解决权限提升的问题。</font>
 
 #### Linux/Ubuntu/Debian
 

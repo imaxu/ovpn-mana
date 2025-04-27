@@ -10,7 +10,7 @@ An OpenVPN command-line C++ library and a simple management program based on the
 
 ### Environment
 
-<span style="color:orange">Note: The current version requires ```ROOT``` privileges to run correctly. If you need to call it from a web application, you will need to resolve the privilege escalation issue yourself.</span>
+<font color="orange">Note: The current version requires ```ROOT``` privileges to run correctly. If you need to call it from a web application, you will need to resolve the privilege escalation issue yourself.</font>
 
 #### Linux/Ubuntu/Debian
 
