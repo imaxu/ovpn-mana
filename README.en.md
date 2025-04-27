@@ -26,7 +26,7 @@ openvpn easy-rsa
 #### Clone Repository
 
 ```shell
-git clone [https://github.com/imaxu/ovpn-mana.git](https://github.com/imaxu/ovpn-mana.git) # Clone the repository locally
+git clone https://github.com/imaxu/ovpn-mana.git # Clone the repository locally
 cd ovpn-mana
 ```
 
