@@ -138,16 +138,16 @@ bool OpenVPNManager::createService(const std::string &name, const std::string& s
   config << "port " << port << "\n"
          << "proto udp\n"
          << "dev tun\n"
-         << "ca " << OVPN_SERVER_CONF_DIR << "/" name << "/ca.crt\n"
-         << "cert " << OVPN_SERVER_CONF_DIR << "/" name << "/server.crt\n"
-         << "key " << OVPN_SERVER_CONF_DIR << "/" name << "/server.key\n"
-         << "dh " << OVPN_SERVER_CONF_DIR << "/" name << "/dh.pem\n"
-         << "tls-auth " << OVPN_SERVER_CONF_DIR << "/" name << "/ta.key 0\n"
+         << "ca " << OVPN_SERVER_CONF_DIR << "/" << name << "/ca.crt\n"
+         << "cert " << OVPN_SERVER_CONF_DIR << "/" << name << "/server.crt\n"
+         << "key " << OVPN_SERVER_CONF_DIR << "/" << name << "/server.key\n"
+         << "dh " << OVPN_SERVER_CONF_DIR << "/" << name << "/dh.pem\n"
+         << "tls-auth " << OVPN_SERVER_CONF_DIR << "/" << name << "/ta.key 0\n"
          << "server " << subnet << " 255.255.255.0\n"
          << "keepalive 10 120\n"
          << "persist-key\n"
          << "persist-tun\n"
-         << "status " << OVPN_SERVER_CONF_DIR << "/" name << "/status.log\n"
+         << "status " << OVPN_SERVER_CONF_DIR << "/" << name << "/status.log\n"
          << "verb 3\n";
 
   std::ofstream confFile(OVPN_DIR + "/" + name + "-server.conf");
