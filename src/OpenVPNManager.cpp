@@ -633,6 +633,25 @@ std::vector<VPNClient> OpenVPNManager::getOnlineClients(const std::string &servi
   return clients;
 }
 
+// 获取总客户端数量（统计client-config目录下的文件数量）
+int OpenVPNManager::getTotalClientsCount(const std::string &serviceName)
+{
+  fs::path clientConfigDir = fs::path(OVPN_DIR) / "client-configs" / serviceName;
+  
+  if (!fs::exists(clientConfigDir) || !fs::is_directory(clientConfigDir)) {
+      return 0;
+  }
+
+  int count = 0;
+  for (const auto &entry : fs::directory_iterator(clientConfigDir)) {
+      if (entry.is_regular_file() && entry.path().extension() == ".ovpn") {
+          count++;
+      }
+  }
+  
+  return count;
+}
+
 // 获取客户端配置文件路径
 std::string OpenVPNManager::getClientConfigPath(const std::string &name, const std::string &serviceName)
 {

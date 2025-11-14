@@ -108,6 +108,14 @@ extern "C"
   /// @note    该函数会获取在线OpenVPN客户端列表，并返回客户端数量。客户端列表中的每个客户端包含名称、VPN IP、真实 IP、上线时间、接收字节数和发送字节数等信息。
   LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_online_clients(ovpn_mana_handle_t handle, const char *service_name, ovpn_client_t *clients, int &client_count);
 
+  /// @brief  获取总客户端数量
+  /// @param  handle  句柄
+  /// @param  service_name  服务名称
+  /// @param  total_count  总客户端数量
+  /// @return  错误码
+  /// @note    该函数会获取指定服务的总客户端数量（统计client-config目录下的.ovpn文件数量）。
+  LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_total_clients_count(ovpn_mana_handle_t handle, const char *service_name, int &total_count);
+
   /// @brief  返回指定OpenVPN客户端配置文件内容
   /// @param  handle  句柄
   /// @param  service_name  服务名称

@@ -40,6 +40,7 @@ public:
   static bool createClient(const std::string &name, const std::string &serviceName, const std::string &wanip);
   static bool revokeClient(const std::string &name, const std::string &serviceName);
   static std::vector<VPNClient> getOnlineClients(const std::string &serviceName);
+  static int getTotalClientsCount(const std::string &serviceName);
   static std::string getOVPNFileContent(const std::string &name, const std::string &serviceName);
 
 private:

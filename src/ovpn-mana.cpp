@@ -314,6 +314,28 @@ LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_online_clients(ovpn_mana_handle_t 
     return -1; // 错误
   }
 }
+
+/// @brief  获取总客户端数量
+/// @param  handle  句柄
+/// @param  service_name  服务名称
+/// @param  total_count  总客户端数量
+/// @return  错误码
+/// @note    该函数会获取指定服务的总客户端数量（统计client-config目录下的.ovpn文件数量）。
+LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_total_clients_count(ovpn_mana_handle_t handle, const char *service_name, int &total_count)
+{
+
+  try
+  {
+    OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
+    total_count = manager->getTotalClientsCount(service_name);
+    return OVPN_ERR_SUCCESS; // 成功
+  }
+  catch (const std::exception &e)
+  {
+    std::cerr << "Failed to get total clients count: " << e.what() << std::endl;
+    return -1; // 错误
+  }
+}
 /// @brief  返回指定OpenVPN客户端配置文件内容
 /// @param  handle  句柄
 /// @param  service_name  服务名称

@@ -160,8 +160,22 @@ void list_online_clients(ovpn_mana_handle_t handle, const char *service_name)
     delete[] clients;
     return;
   }
+
+  // 获取总客户端数量
+  int total_count = 0;
+  err = ovpn_mana_get_total_clients_count(handle, service_name, total_count);
+  if (err != OVPN_ERR_SUCCESS)
+  {
+    std::cerr << "Failed to get total clients count" << std::endl;
+    total_count = -1; // 表示获取失败
+  }
   
-  std::cout << "Online OpenVPN Clients:" << std::endl;
+  std::cout << "OpenVPN Clients for service '" << service_name << "':" << std::endl;
+  std::cout << "Total Clients: " << (total_count >= 0 ? std::to_string(total_count) : "N/A") << std::endl;
+  std::cout << "Online Clients: " << client_count << std::endl;
+  std::cout << std::endl;
+  
+  std::cout << "Online Clients:" << std::endl;
   for (int i = 0; i < client_count; ++i)
   {
     std::cout 
