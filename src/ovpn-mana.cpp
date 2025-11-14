@@ -294,13 +294,13 @@ LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_online_clients(ovpn_mana_handle_t 
 
     if (client_count > 0)
     {
-      // 转换VPNClient 到 ovpn_client_t
+      // 转换VPNClient 到 ovpn_client_t，使用snprintf确保安全复制和null终止
       for (int i = 0; i < client_count; ++i)
       {
-        strncpy(clients[i].name, client_list[i].name.c_str(), sizeof(clients[i].name));
-        strncpy(clients[i].private_ipv4, client_list[i].vpnIp.c_str(), sizeof(clients[i].private_ipv4));
-        strncpy(clients[i].public_ipv4, client_list[i].realIp.c_str(), sizeof(clients[i].public_ipv4));
-        strncpy(clients[i].since, client_list[i].since.c_str(), sizeof(clients[i].since));
+        snprintf(clients[i].name, sizeof(clients[i].name), "%s", client_list[i].name.c_str());
+        snprintf(clients[i].private_ipv4, sizeof(clients[i].private_ipv4), "%s", client_list[i].vpnIp.c_str());
+        snprintf(clients[i].public_ipv4, sizeof(clients[i].public_ipv4), "%s", client_list[i].realIp.c_str());
+        snprintf(clients[i].since, sizeof(clients[i].since), "%s", client_list[i].since.c_str());
         clients[i].bytes_received = client_list[i].bytesReceived;
         clients[i].bytes_sent = client_list[i].bytesSent;
       }

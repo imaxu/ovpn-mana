@@ -19,10 +19,10 @@ typedef struct {
 
 typedef struct {
 
-    char name[64];         // 客户端名称
-    char private_ipv4[16];       // VPN IP地址
-    char public_ipv4[16];      // 实际IP地址
-    char since[32];       // 连接时间
+    char name[128];         // 客户端名称
+    char private_ipv4[32];       // VPN IP地址
+    char public_ipv4[64];      // 实际IP地址
+    char since[64];       // 连接时间
     unsigned long long bytes_received; // 接收字节数
     unsigned long long bytes_sent;     // 发送字节数
 

@@ -236,6 +236,7 @@ bool OpenVPNManager::restartService(const std::string &name)
 // 删除服务
 bool OpenVPNManager::deleteService(const std::string &name)
 {
+  const std::string serverRootPath = OVPN_SERVER_CONF_DIR + "/" + name;
   // 1. 停止服务
   if (isServiceActive(name))
   {
@@ -258,13 +259,13 @@ bool OpenVPNManager::deleteService(const std::string &name)
   // 3. 删除配置文件
   std::vector<std::string> filesToDelete = {
     OVPN_DIR + "/" + name + "-server.conf",
-    OVPN_SERVER_CONF_DIR + "/" + name + "/ca.crt",
-    OVPN_SERVER_CONF_DIR + "/" + name + "/server.crt",
-    OVPN_SERVER_CONF_DIR + "/" + name + "/server.key",
-    OVPN_SERVER_CONF_DIR + "/" + name + "/dh.pem",
-    OVPN_SERVER_CONF_DIR + "/" + name + "/ta.key",
-    OVPN_SERVER_CONF_DIR + "/" + name + "/ipp.txt",
-    OVPN_SERVER_CONF_DIR + "/" + name + "/status.log"};
+    serverRootPath + "/ca.crt",
+    serverRootPath + "/server.crt",
+    serverRootPath + "/server.key",
+    serverRootPath + "/dh.pem",
+    serverRootPath + "/ta.key",
+    serverRootPath + "/ipp.txt",
+    serverRootPath + "/status.log"};
 
   bool success = true;
   for (const auto &file : filesToDelete)
