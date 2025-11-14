@@ -1,4 +1,4 @@
-#ifndef _SDK_TYPES_HPP
+﻿#ifndef _SDK_TYPES_HPP
 #define _SDK_TYPES_HPP
 
 

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file main.cpp
  * @brief OpenVPN管理器主程序
  * @author xuwh (imaxu@sina.com)

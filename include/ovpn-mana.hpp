@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ovpn-mana.hpp
  * @brief OpenVPN管理器动态库头文件
  * @author xuwh (imaxu@sina.com)
