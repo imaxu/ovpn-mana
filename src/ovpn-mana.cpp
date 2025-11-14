@@ -279,7 +279,7 @@ LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_revoke_client(ovpn_mana_handle_t handl
 /// @brief  获取在线OpenVPN客户端列表
 /// @param  handle  句柄
 /// @param  service_name  服务名称
-/// @param  clients  客户端列表
+/// @param  clients  客户端列表 (如果为nullptr，则只返回client_count)
 /// @param  client_count  客户端数量
 /// @return  错误码
 /// @note    该函数会获取在线OpenVPN客户端列表，并返回客户端数量。客户端列表中的每个客户端包含名称、VPN IP、真实 IP、上线时间、接收字节数和发送字节数等信息。
@@ -292,7 +292,7 @@ LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_online_clients(ovpn_mana_handle_t 
     std::vector<VPNClient> client_list = manager->getOnlineClients(service_name);
     client_count = client_list.size();
 
-    if (client_count > 0)
+    if (clients != nullptr && client_count > 0)
     {
       // 转换VPNClient 到 ovpn_client_t，使用snprintf确保安全复制和null终止
       for (int i = 0; i < client_count; ++i)

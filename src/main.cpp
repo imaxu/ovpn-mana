@@ -143,14 +143,24 @@ void revoke_client(ovpn_mana_handle_t handle, const char *service_name, const ch
 
 void list_online_clients(ovpn_mana_handle_t handle, const char *service_name)
 {
-  ovpn_client_t clients[10];
+  ovpn_client_t *clients = nullptr;
   int client_count = 0;
-  ovpn_err_t err = ovpn_mana_get_online_clients(handle, service_name, clients, client_count);
+  ovpn_err_t err = ovpn_mana_get_online_clients(handle, service_name, nullptr, client_count);
+  if (err != OVPN_ERR_SUCCESS || client_count == 0)
+  {
+    std::cerr << "Failed to get online OpenVPN clients count" << std::endl;
+    return;
+  }
+  
+  clients = new ovpn_client_t[client_count];
+  err = ovpn_mana_get_online_clients(handle, service_name, clients, client_count);
   if (err != OVPN_ERR_SUCCESS)
   {
     std::cerr << "Failed to get online OpenVPN clients" << std::endl;
+    delete[] clients;
     return;
   }
+  
   std::cout << "Online OpenVPN Clients:" << std::endl;
   for (int i = 0; i < client_count; ++i)
   {
@@ -163,6 +173,8 @@ void list_online_clients(ovpn_mana_handle_t handle, const char *service_name)
     << ", Bytes Sent: " << clients[i].bytes_sent;
     std::cout << std::endl;
   }
+  
+  delete[] clients;
 }
 
 
