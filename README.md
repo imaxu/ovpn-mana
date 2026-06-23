@@ -67,6 +67,8 @@ OpenVPN Manager (OVPN-MANA) — 跨平台 OpenVPN 命令行管理工具与 C++17
 
 ## 快速开始
 
+![1782202652055](image/README/1782202652055.png)
+
 ### 依赖安装
 
 **Linux (Debian/Ubuntu)**
@@ -140,23 +142,23 @@ Platform: Linux
 
 ### 服务管理
 
-| 命令 | 说明 |
-|------|------|
-| `service -l` | 列出所有服务 |
+| 命令                                  | 说明                                       |
+| ------------------------------------- | ------------------------------------------ |
+| `service -l`                        | 列出所有服务                               |
 | `service -c <name>,<port>,<subnet>` | 创建服务（例：`mysvc,1194,10.8.0.0/24`） |
-| `service -d <name>` | 删除服务（含证书吊销） |
-| `service -start <name>` | 启动服务 |
-| `service -stop <name>` | 停止服务 |
-| `service -restart <name>` | 重启服务 |
+| `service -d <name>`                 | 删除服务（含证书吊销）                     |
+| `service -start <name>`             | 启动服务                                   |
+| `service -stop <name>`              | 停止服务                                   |
+| `service -restart <name>`           | 重启服务                                   |
 
 ### 客户端管理
 
-| 命令 | 说明 |
-|------|------|
-| `client -l <service_name>` | 列出在线客户端（按 IP 升序，含流量统计） |
+| 命令                                                     | 说明                                           |
+| -------------------------------------------------------- | ---------------------------------------------- |
+| `client -l <service_name>`                             | 列出在线客户端（按 IP 升序，含流量统计）       |
 | `client -c <service_name>,<name>,<host>[,<client_ip>]` | 创建客户端（host 支持 IP 或域名，可选固定 IP） |
-| `client -d <service_name>,<name>` | 吊销客户端证书 |
-| `client -conf <service_name>,<name>` | 获取客户端 `.ovpn` 配置文件 |
+| `client -d <service_name>,<name>`                      | 吊销客户端证书                                 |
+| `client -conf <service_name>,<name>`                   | 获取客户端 `.ovpn` 配置文件                  |
 
 ---
 
@@ -238,37 +240,37 @@ ovpn_err_t ovpn_mana_get_client_config(ovpn_mana_handle_t handle, const char *se
 
 **`ovpn_service_t`**
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `name` | `char[64]` | 服务名称 |
-| `configPath` | `char[256]` | 配置文件路径 |
-| `port` | `int` | 监听端口 |
-| `subnet` | `char[32]` | 客户端子网 CIDR |
-| `is_activated` | `int` | 是否运行中 |
-| `is_enabled` | `int` | 是否开机自启 |
+| 字段             | 类型          | 说明            |
+| ---------------- | ------------- | --------------- |
+| `name`         | `char[64]`  | 服务名称        |
+| `configPath`   | `char[256]` | 配置文件路径    |
+| `port`         | `int`       | 监听端口        |
+| `subnet`       | `char[32]`  | 客户端子网 CIDR |
+| `is_activated` | `int`       | 是否运行中      |
+| `is_enabled`   | `int`       | 是否开机自启    |
 
 **`ovpn_client_t`**
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `name` | `char[128]` | 客户端名称 |
-| `private_ipv4` | `char[32]` | VPN 内网 IP |
-| `public_ipv4` | `char[64]` | 公网 IP:Port |
-| `since` | `char[64]` | 连接时间 |
-| `bytes_received` | `unsigned long long` | 接收字节数 |
-| `bytes_sent` | `unsigned long long` | 发送字节数 |
+| 字段               | 类型                   | 说明         |
+| ------------------ | ---------------------- | ------------ |
+| `name`           | `char[128]`          | 客户端名称   |
+| `private_ipv4`   | `char[32]`           | VPN 内网 IP  |
+| `public_ipv4`    | `char[64]`           | 公网 IP:Port |
+| `since`          | `char[64]`           | 连接时间     |
+| `bytes_received` | `unsigned long long` | 接收字节数   |
+| `bytes_sent`     | `unsigned long long` | 发送字节数   |
 
 ### 错误码
 
-| 常量 | 值 | 说明 |
-|------|----|------|
-| `OVPN_ERR_SUCCESS` | `0` | 成功 |
-| `OVPN_ERR_FAILURE` | `-1` | 通用失败 |
-| `OVPN_ERR_INVALID_PARAM` | `-2` | 参数不合法 |
-| `OVPN_ERR_NOT_FOUND` | `-3` | 资源不存在 |
-| `OVPN_ERR_PERMISSION_DENIED` | `-4` | 权限不足 |
-| `OVPN_ERR_TIMEOUT` | `-5` | 操作超时 |
-| `OVPN_ERR_IO_FAILURE` | `-6` | IO 操作失败 |
+| 常量                           | 值     | 说明        |
+| ------------------------------ | ------ | ----------- |
+| `OVPN_ERR_SUCCESS`           | `0`  | 成功        |
+| `OVPN_ERR_FAILURE`           | `-1` | 通用失败    |
+| `OVPN_ERR_INVALID_PARAM`     | `-2` | 参数不合法  |
+| `OVPN_ERR_NOT_FOUND`         | `-3` | 资源不存在  |
+| `OVPN_ERR_PERMISSION_DENIED` | `-4` | 权限不足    |
+| `OVPN_ERR_TIMEOUT`           | `-5` | 操作超时    |
+| `OVPN_ERR_IO_FAILURE`        | `-6` | IO 操作失败 |
 
 ---
 
@@ -284,11 +286,11 @@ cmake --build .
 
 产物位于 `build/Linux_<arch>/`：
 
-| 文件 | 说明 |
-|------|------|
-| `openvpnmgr` | CLI 可执行文件 |
-| `libovpn-mana.so` | 动态库 |
-| `test_*` | 单元测试可执行文件 |
+| 文件                | 说明               |
+| ------------------- | ------------------ |
+| `openvpnmgr`      | CLI 可执行文件     |
+| `libovpn-mana.so` | 动态库             |
+| `test_*`          | 单元测试可执行文件 |
 
 ### Windows
 
@@ -426,13 +428,13 @@ int main() {
 
 ### 不兼容变更
 
-| 变更 | 影响 | 迁移方案 |
-|------|------|----------|
-| PKI 路径从 `/home/xuwh/easy-rsa` 改为 `/etc/openvpn/easy-rsa` | 证书操作全部失败 | 创建符号链接 |
-| easyrsa 从安装目录改为 PATH 调用 | 找不到 easyrsa 命令 | 链接到 `/usr/local/bin` |
-| `ovpn_service_t` 新增 `port`/`subnet` 字段 | 旧宿主程序 ABI 不兼容 | 重新编译宿主程序 |
-| 文件权限 `644` → `600` | 新创建服务私钥权限更严 | 仅影响新服务 |
-| 退出码校验 | 旧版本可能"假成功" | 更安全，命令失败会正确报错 |
+| 变更                                                              | 影响                   | 迁移方案                   |
+| ----------------------------------------------------------------- | ---------------------- | -------------------------- |
+| PKI 路径从 `/home/xuwh/easy-rsa` 改为 `/etc/openvpn/easy-rsa` | 证书操作全部失败       | 创建符号链接               |
+| easyrsa 从安装目录改为 PATH 调用                                  | 找不到 easyrsa 命令    | 链接到 `/usr/local/bin`  |
+| `ovpn_service_t` 新增 `port`/`subnet` 字段                  | 旧宿主程序 ABI 不兼容  | 重新编译宿主程序           |
+| 文件权限 `644` → `600`                                       | 新创建服务私钥权限更严 | 仅影响新服务               |
+| 退出码校验                                                        | 旧版本可能"假成功"     | 更安全，命令失败会正确报错 |
 
 ### 迁移步骤
 
@@ -508,13 +510,13 @@ ctest --output-on-failure
 
 测试覆盖：
 
-| 测试套件 | 用例数 | 覆盖范围 |
-|----------|--------|----------|
-| `test_validators` | 16 | 参数校验：IP、端口、子网 CIDR、边界条件 |
-| `test_command_templates` | 8 | 命令模板替换：占位符替换、路径拼接 |
-| `test_validators_integration` | 10 | 集成校验：组合参数、服务名规范 |
-| `test_appconfig_defaults` | 8 | 配置默认值兼容性：路径、二进制位置 |
-| `test_cli_e2e.sh` | 15 | CLI 端到端：服务/客户端全生命周期 |
+| 测试套件                        | 用例数 | 覆盖范围                                |
+| ------------------------------- | ------ | --------------------------------------- |
+| `test_validators`             | 16     | 参数校验：IP、端口、子网 CIDR、边界条件 |
+| `test_command_templates`      | 8      | 命令模板替换：占位符替换、路径拼接      |
+| `test_validators_integration` | 10     | 集成校验：组合参数、服务名规范          |
+| `test_appconfig_defaults`     | 8      | 配置默认值兼容性：路径、二进制位置      |
+| `test_cli_e2e.sh`             | 15     | CLI 端到端：服务/客户端全生命周期       |
 
 ---
 
@@ -526,12 +528,12 @@ ctest --output-on-failure
 
 ### 方案对比
 
-| 方案 | 安全性 | 复杂度 | 适用场景 |
-|------|--------|--------|----------|
-| [sudoers 白名单](#方案一sudoers-白名单推荐) | ★★★★ | 低 | 通用场景，推荐 |
-| [setuid 包装器](#方案二setuid-包装器) | ★★★ | 中 | 无 sudo 环境 |
-| [systemd 服务](#方案三systemd-服务) | ★★★★★ | 中 | 宿主本身也是 systemd 服务 |
-| [Linux Capabilities](#方案四linux-capabilities) | ★★★★★ | 高 | 容器化 / 安全敏感环境 |
+| 方案                                         | 安全性     | 复杂度 | 适用场景                  |
+| -------------------------------------------- | ---------- | ------ | ------------------------- |
+| [sudoers 白名单](#方案一sudoers-白名单推荐)     | ★★★★   | 低     | 通用场景，推荐            |
+| [setuid 包装器](#方案二setuid-包装器)           | ★★★     | 中     | 无 sudo 环境              |
+| [systemd 服务](#方案三systemd-服务)             | ★★★★★ | 中     | 宿主本身也是 systemd 服务 |
+| [Linux Capabilities](#方案四linux-capabilities) | ★★★★★ | 高     | 容器化 / 安全敏感环境     |
 
 ### 方案一：sudoers 白名单（推荐）
 
