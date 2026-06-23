@@ -10,3 +10,7 @@
 
 build/
 vcpkg_installed/
+
+# CMake generated headers
+include/version.hpp
+include/config.hpp

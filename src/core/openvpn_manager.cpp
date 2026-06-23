@@ -1,46 +1,49 @@
-﻿#include "OpenVPNManager.hpp"
-#include "config.hpp"
+#include "core/openvpn_manager.hpp"
+#include "core/command_templates.hpp"
+#include "core/validators.hpp"
+#include "ovpn-mana/ovpn_mana_platform.h"
 #include <iomanip>
 #include <fstream>
 #include <sstream>
 #include <array>
 #include <thread>
 #include <iostream>
-#include <memory>
 #include <algorithm>
-#if defined(UNIX) || defined(__unix__) || defined(__APPLE__)
-#include <unistd.h>
-#else
-#define getuid() 0
-#define popen _popen
-#define pclose _pclose
-#endif
+#include <vector>
 
 namespace fs = std::filesystem;
 
-// 辅助函数：执行shell命令
 bool OpenVPNManager::execCommand(const std::string &cmd, std::string &output)
 {
-  // 打印命令
   std::cout << "Executing command: " << cmd << std::endl;
 
+  std::string fullCmd = cmd + " 2>&1";
   std::array<char, 128> buffer;
-  std::unique_ptr<FILE, int (*)(FILE *)> pipe(popen(cmd.c_str(), "r"), pclose);
-  if (!pipe)
+  FILE *pipe = OVPN_POPEN(fullCmd.c_str(), "r");
+  if (!pipe) {
+    std::cerr << "Failed to execute command" << std::endl;
     return false;
-  while (fgets(buffer.data(), buffer.size(), pipe.get()))
-  {
-    output += buffer.data();
   }
+  while (fgets(buffer.data(), buffer.size(), pipe))
+    output += buffer.data();
+
+  int status = OVPN_PCLOSE(pipe);
+  bool success = (status == 0);
+
+  if (!output.empty() && output.back() == '\n')
+    output.pop_back();
   std::cout << "Executing command result: " << output << std::endl;
-  return true;
+
+  if (!success)
+    std::cerr << "Command failed with exit code: " << status << std::endl;
+
+  return success;
 }
 
-// 服务列表
 std::vector<VPNService> OpenVPNManager::listServices()
 {
   std::vector<VPNService> services;
-  fs::path ovpnDir(OVPN_DIR);
+  fs::path ovpnDir(m_config.ovpn_dir);
 
   if (!fs::exists(ovpnDir))
     return services;
@@ -58,6 +61,23 @@ std::vector<VPNService> OpenVPNManager::listServices()
       VPNService service;
       service.name = name;
       service.configPath = entry.path().string();
+      service.port = 0;
+
+      std::ifstream confFile(entry.path());
+      if (confFile.is_open()) {
+        std::string line;
+        while (std::getline(confFile, line)) {
+          if (line.rfind("port ", 0) == 0) {
+            try { service.port = std::stoi(line.substr(5)); } catch (...) {}
+          } else if (line.rfind("server ", 0) == 0) {
+            std::string s = line.substr(7);
+            size_t sp = s.find(' ');
+            if (sp != std::string::npos)
+              service.subnet = s.substr(0, sp);
+          }
+        }
+      }
+
       service.isActive = isServiceActive(name);
       service.isEnabled = isServiceEnabled(name);
       services.push_back(service);
@@ -66,38 +86,46 @@ std::vector<VPNService> OpenVPNManager::listServices()
   return services;
 }
 
-// 创建服务
 bool OpenVPNManager::createService(const std::string &name, const std::string& subnet, int port)
 {
-  // 确保使用sudo权限运行
-  if (getuid() != 0)
+  if (OVPN_GETUID() != 0)
   {
     std::cerr << "Error: This operation requires root privileges. Please use sudo." << std::endl;
     return false;
   }
-  // 打印 检查权限正确
   std::cout << "Checking permissions corrected." << std::endl;
 
-  /// 生成服务证书
-  /// ./easyrsa gen-req server nopass  # 生成服务器密钥对
-  ///./easyrsa sign-req server server  # 用 CA 签发服务器证书
-  std::string cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa --batch gen-req " + name + "-server nopass";
+  if (!fs::exists(m_config.easy_rsa_dir)) {
+    try {
+      fs::create_directories(m_config.easy_rsa_dir);
+    } catch (const fs::filesystem_error &e) {
+      std::cerr << "Failed to create PKI workspace " << m_config.easy_rsa_dir << ": " << e.what() << std::endl;
+      return false;
+    }
+  }
+
+  if (!fs::exists(m_config.easy_rsa_dir + "/pki/ca.crt")) {
+    std::cerr << "CA not found. Please initialize PKI first:" << std::endl;
+    std::cerr << "  cd " << m_config.easy_rsa_dir << " && sudo easyrsa init-pki" << std::endl;
+    std::cerr << "  sudo easyrsa build-ca nopass" << std::endl;
+    return false;
+  }
+
+  std::string cmd = ovpn::commands::replace(ovpn::commands::EASYRSA_GEN_REQ, m_config, {{"NAME", name + "-server nopass"}});
   std::string output;
   if (!execCommand(cmd, output))
     return false;
   std::cout << "Created new request for " << name << std::endl;
 
-  cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa --batch sign-req server " + name + "-server";
+  cmd = ovpn::commands::replace(ovpn::commands::EASYRSA_SIGN_REQ_SERVER, m_config, {{"NAME", name + "-server"}});
   if (!execCommand(cmd, output))
     return false;
   std::cout << "Signed request for " << name << std::endl;
 
-  // EASY_RSA_DIR/pki下是否存在dh.pem
-  // 不存在则生成一个
-  if (!fs::exists(EASY_RSA_DIR + "/pki/dh.pem"))
+  if (!fs::exists(m_config.easy_rsa_dir + "/pki/dh.pem"))
   {
     std::cerr << "dh.pem not found, generating..." << std::endl;
-    cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa gen-dh";
+    cmd = ovpn::commands::replace(ovpn::commands::EASYRSA_GEN_DH, m_config);
     if (!execCommand(cmd, output))
     {
       std::cerr << "Failed to generate dh.pem: " << output << std::endl;
@@ -105,8 +133,7 @@ bool OpenVPNManager::createService(const std::string &name, const std::string& s
     }
   }
 
-  // 如果不存在目录OVPN_SERVER_CONF_DIR + "/" + name + "/ccd" 则创建一个
-  fs::path ccdDir(OVPN_SERVER_CONF_DIR + "/" + name + "/ccd");
+  fs::path ccdDir = fs::path(m_config.ovpn_server_conf_dir()) / name / "ccd";
   if (!fs::exists(ccdDir))
   {
     try
@@ -120,10 +147,9 @@ bool OpenVPNManager::createService(const std::string &name, const std::string& s
     }
   }
 
-  // 定义带sudo拷贝函数
-  auto copyWithSudo = [](const std::string &src, const std::string &dest) -> bool
+  auto copyWithSudo = [this](const std::string &src, const std::string &dest) -> bool
   {
-    std::string cmd = "sudo cp " + src + " " + dest;
+    std::string cmd = ovpn::commands::replace(ovpn::commands::CP_WITH_SUDO, m_config, {{"SRC", src}, {"DEST", dest}});
     std::string output;
     if (!execCommand(cmd, output))
     {
@@ -132,83 +158,63 @@ bool OpenVPNManager::createService(const std::string &name, const std::string& s
       return false;
     }
 
-    // 设置正确的文件权限
-    cmd = "sudo chmod 644 " + dest;
+    cmd = ovpn::commands::replace(ovpn::commands::CHMOD, m_config, {{"MODE", "644"}, {"PATH", dest}});
     return execCommand(cmd, output);
   };
 
-  // 证书文件拷贝（使用sudo）
-  std::string prefix = EASY_RSA_DIR + "/pki/";
-  if (!copyWithSudo(prefix + "ca.crt", OVPN_SERVER_CONF_DIR + "/" + name + "/ca.crt") ||
-      !copyWithSudo(prefix + "issued/" + name + "-server.crt", OVPN_SERVER_CONF_DIR + "/" + name + "/server.crt") ||
-      !copyWithSudo(prefix + "private/" + name + "-server.key", OVPN_SERVER_CONF_DIR + "/" + name + "/server.key") ||
-      !copyWithSudo(prefix + "dh.pem", OVPN_SERVER_CONF_DIR + "/" + name + "/dh.pem"))
+  fs::path prefix = fs::path(m_config.easy_rsa_dir) / "pki";
+  if (!copyWithSudo((prefix / "ca.crt").string(), (fs::path(m_config.ovpn_server_conf_dir()) / name / "ca.crt").string()) ||
+      !copyWithSudo((prefix / "issued" / (name + "-server.crt")).string(), (fs::path(m_config.ovpn_server_conf_dir()) / name / "server.crt").string()) ||
+      !copyWithSudo((prefix / "private" / (name + "-server.key")).string(), (fs::path(m_config.ovpn_server_conf_dir()) / name / "server.key").string()) ||
+      !copyWithSudo((prefix / "dh.pem").string(), (fs::path(m_config.ovpn_server_conf_dir()) / name / "dh.pem").string()))
   {
     return false;
   }
 
-  // 生成TLS密钥（直接使用root权限）
-  cmd = "sudo " + OPENVPN_BIN + " --genkey secret " + OVPN_SERVER_CONF_DIR + "/" + name + "/ta.key";
+  cmd = ovpn::commands::replace(ovpn::commands::OPENVPN_GEN_TA_KEY, m_config, {{"OUTPUT_PATH", (fs::path(m_config.ovpn_server_conf_dir()) / name / "ta.key").string()}});
   if (!execCommand(cmd, output))
   {
     std::cerr << "Failed to generate TLS key: " << output << std::endl;
     return false;
   }
 
-  // 3. 生成配置文件
-  std::ostringstream config;
-  config
-         << "topology subnet\n" 
-         << "port " << port << "\n"
-         << "proto udp\n"
-         << "dev tun\n"
-         << "ca " << OVPN_SERVER_CONF_DIR << "/" << name << "/ca.crt\n"
-         << "cert " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/server.crt\n"
-         << "key " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/server.key\n"
-         << "dh " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/dh.pem\n"
-         << "tls-auth " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/ta.key 0\n"
-         << "server " << subnet << " 255.255.255.0\n"
-         << "keepalive 10 120\n"
-         << "persist-key\n"
-         << "persist-tun\n"
-         << "ifconfig-pool-persist " << OVPN_SERVER_CONF_DIR << "/" << name << "/ipp.txt\n"
-         << "client-config-dir " << OVPN_SERVER_CONF_DIR << "/" << name << "/ccd\n"
-         << "status " << OVPN_SERVER_CONF_DIR << "/"<<  name << "/status.log\n"
-         << "verb 3\n";
+  std::string serverDir = m_config.ovpn_server_conf_dir() + "/" + name;
+  std::string configContent = ovpn::commands::replace(ovpn::commands::SERVER_CONFIG, m_config, {
+      {"PORT", std::to_string(port)},
+      {"SUBNET", subnet},
+      {"SERVER_DIR", serverDir}
+  });
 
-  std::ofstream confFile(OVPN_DIR + "/" + name + "-server.conf");
-  confFile << config.str();
+  std::ofstream confFile(fs::path(m_config.ovpn_dir) / (name + "-server.conf"));
+  confFile << configContent;
   confFile.close();
 
-  // 4. 启动并启用服务
-  cmd = SYSTEMCTL_BIN + " start openvpn@" + name + "-server";
+  std::string serverSuffix = name + "-server";
+  cmd = ovpn::commands::replace(ovpn::commands::SYSTEMCTL_START, m_config, {{"NAME", serverSuffix}});
   if (!execCommand(cmd, output))
     return false;
 
-  cmd = SYSTEMCTL_BIN + " enable openvpn@" + name + "-server";
+  cmd = ovpn::commands::replace(ovpn::commands::SYSTEMCTL_ENABLE, m_config, {{"NAME", serverSuffix}});
   return execCommand(cmd, output);
 }
 
-// 检查服务是否活跃
 bool OpenVPNManager::isServiceActive(const std::string &name)
 {
-  std::string cmd = SYSTEMCTL_BIN + " is-active openvpn@" + name + "-server";
+  std::string cmd = ovpn::commands::replace(ovpn::commands::SYSTEMCTL_IS_ACTIVE, m_config, {{"NAME", name + "-server"}});
   std::string output;
   return execCommand(cmd, output) && output.find("inactive") == std::string::npos;
 }
 
-// 检查服务是否启用
 bool OpenVPNManager::isServiceEnabled(const std::string &name)
 {
-  std::string cmd = SYSTEMCTL_BIN + " is-enabled openvpn@" + name + "-server";
+  std::string cmd = ovpn::commands::replace(ovpn::commands::SYSTEMCTL_IS_ENABLED, m_config, {{"NAME", name + "-server"}});
   std::string output;
   return execCommand(cmd, output) && output.find("enabled") != std::string::npos;
 }
 
-// 启动服务
 bool OpenVPNManager::startService(const std::string &name)
 {
-  std::string cmd = SYSTEMCTL_BIN + " start openvpn@" + name + "-server";
+  std::string cmd = ovpn::commands::replace(ovpn::commands::SYSTEMCTL_START, m_config, {{"NAME", name + "-server"}});
   std::string output;
   if (!execCommand(cmd, output))
   {
@@ -218,10 +224,9 @@ bool OpenVPNManager::startService(const std::string &name)
   return true;
 }
 
-// 停止服务
 bool OpenVPNManager::stopService(const std::string &name)
 {
-  std::string cmd = "sudo " + SYSTEMCTL_BIN + " stop openvpn@" + name + "-server";
+  std::string cmd = ovpn::commands::replace(ovpn::commands::SYSTEMCTL_STOP, m_config, {{"NAME", name + "-server"}});
   std::string output;
   if (!execCommand(cmd, output))
   {
@@ -229,7 +234,6 @@ bool OpenVPNManager::stopService(const std::string &name)
     return false;
   }
 
-  // 确保服务已停止
   int attempts = 0;
   while (isServiceActive(name) && attempts++ < 5)
   {
@@ -239,10 +243,9 @@ bool OpenVPNManager::stopService(const std::string &name)
   return !isServiceActive(name);
 }
 
-// 重启服务
 bool OpenVPNManager::restartService(const std::string &name)
 {
-  std::string cmd = SYSTEMCTL_BIN + " restart openvpn@" + name + "-server";
+  std::string cmd = ovpn::commands::replace(ovpn::commands::SYSTEMCTL_RESTART, m_config, {{"NAME", name + "-server"}});
   std::string output;
   if (!execCommand(cmd, output))
   {
@@ -252,11 +255,9 @@ bool OpenVPNManager::restartService(const std::string &name)
   return true;
 }
 
-// 删除服务
 bool OpenVPNManager::deleteService(const std::string &name)
 {
-  const std::string serverRootPath = OVPN_SERVER_CONF_DIR + "/" + name;
-  // 1. 停止服务
+  const fs::path serverRootPath = fs::path(m_config.ovpn_server_conf_dir()) / name;
   if (isServiceActive(name))
   {
     if (!stopService(name))
@@ -266,8 +267,7 @@ bool OpenVPNManager::deleteService(const std::string &name)
     }
   }
 
-  // 2. 禁用服务
-  std::string cmd = SYSTEMCTL_BIN + " disable openvpn@" + name + "-server";
+  std::string cmd = ovpn::commands::replace(ovpn::commands::SYSTEMCTL_DISABLE, m_config, {{"NAME", name + "-server"}});
   std::string output;
   if (!execCommand(cmd, output))
   {
@@ -275,16 +275,15 @@ bool OpenVPNManager::deleteService(const std::string &name)
     return false;
   }
 
-  // 3. 删除配置文件
   std::vector<std::string> filesToDelete = {
-    OVPN_DIR + "/" + name + "-server.conf",
-    serverRootPath + "/ca.crt",
-    serverRootPath + "/server.crt",
-    serverRootPath + "/server.key",
-    serverRootPath + "/dh.pem",
-    serverRootPath + "/ta.key",
-    serverRootPath + "/ipp.txt",
-    serverRootPath + "/status.log"};
+    (fs::path(m_config.ovpn_dir) / (name + "-server.conf")).string(),
+    (serverRootPath / "ca.crt").string(),
+    (serverRootPath / "server.crt").string(),
+    (serverRootPath / "server.key").string(),
+    (serverRootPath / "dh.pem").string(),
+    (serverRootPath / "ta.key").string(),
+    (serverRootPath / "ipp.txt").string(),
+    (serverRootPath / "status.log").string()};
 
   bool success = true;
   for (const auto &file : filesToDelete)
@@ -303,58 +302,60 @@ bool OpenVPNManager::deleteService(const std::string &name)
     }
   }
 
-  // 删除目录及内所有文件 OVPN_SERVER_CONF_DIR + "/" + name以及子目录
   try
   {
-    fs::remove_all(OVPN_SERVER_CONF_DIR + "/" + name);
+    fs::remove_all(fs::path(m_config.ovpn_server_conf_dir()) / name);
   }
   catch (const fs::filesystem_error &e)
   {
-    std::cerr << "Failed to delete directory " << OVPN_SERVER_CONF_DIR + "/" + name << ": " << e.what() << std::endl;
+    std::cerr << "Failed to delete directory " << m_config.ovpn_server_conf_dir() + "/" + name << ": " << e.what() << std::endl;
     success = false;
   }
 
-
-  // 4. 从easy-rsa吊销服务器证书
-  cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa --batch revoke " + name + "-server";
-  if (!execCommand(cmd, output))
-  {
-    std::cerr << "Failed to revoke server certificate: " << output << std::endl;
-    success = false;
-  }
-
-  // 5. 生成新的CRL
-  cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa gen-crl";
-  if (!execCommand(cmd, output))
-  {
-    std::cerr << "Failed to generate new CRL: " << output << std::endl;
-    success = false;
-  }
-
-  // 6. 更新OpenVPN的CRL文件
-  if (fs::exists(EASY_RSA_DIR + "/pki/crl.pem"))
-  {
-    try
+  bool caExists = fs::exists(m_config.easy_rsa_dir + "/pki/ca.crt");
+  if (caExists) {
+    cmd = ovpn::commands::replace(ovpn::commands::EASYRSA_REVOKE, m_config, {{"NAME", name + "-server"}});
+    if (!execCommand(cmd, output))
     {
-      fs::copy(EASY_RSA_DIR + "/pki/crl.pem",
-               OVPN_DIR + "/crl.pem",
-               fs::copy_options::overwrite_existing);
+      std::cerr << "Warning: Failed to revoke server certificate: " << output << std::endl;
     }
-    catch (const fs::filesystem_error &e)
+
+    cmd = ovpn::commands::replace(ovpn::commands::EASYRSA_GEN_CRL, m_config);
+    if (!execCommand(cmd, output))
     {
-      std::cerr << "Failed to update CRL file: " << e.what() << std::endl;
-      success = false;
+      std::cerr << "Warning: Failed to generate new CRL: " << output << std::endl;
     }
+
+    if (fs::exists(m_config.easy_rsa_dir + "/pki/crl.pem"))
+    {
+      try
+      {
+        fs::copy(m_config.easy_rsa_dir + "/pki/crl.pem",
+                 m_config.ovpn_dir + "/crl.pem",
+                 fs::copy_options::overwrite_existing);
+      }
+      catch (const fs::filesystem_error &e)
+      {
+        std::cerr << "Warning: Failed to update CRL file: " << e.what() << std::endl;
+      }
+    }
+  } else {
+    std::cerr << "Warning: CA not found, skipping certificate revocation." << std::endl;
+    std::cerr << "  Run 'cd " << m_config.easy_rsa_dir << " && sudo easyrsa init-pki" << std::endl;
+    std::cerr << "  sudo easyrsa build-ca nopass' first." << std::endl;
   }
 
   return success;
 }
 
-// 客户端管理
-bool OpenVPNManager::createClient(const std::string &name, const std::string &serviceName, const std::string &wanip)
+bool OpenVPNManager::createClient(const std::string &name, const std::string &serviceName, const std::string &wanip, const std::string &client_ip)
 {
+  if (name.empty() || serviceName.empty() || wanip.empty())
+  {
+    std::cerr << "Error: client name, service name and WAN IP are required" << std::endl;
+    return false;
+  }
 
-  // 读取指定服务的配置文件
   std::string serviceConfigPath = getServiceConfigPath(serviceName);
   if (!fs::exists(serviceConfigPath))
   {
@@ -371,38 +372,54 @@ bool OpenVPNManager::createClient(const std::string &name, const std::string &se
                              std::istreambuf_iterator<char>());
   configFile.close();
 
-  // 从配置文件里读取端口号
   std::string portStr = configContent.substr(configContent.find("port ") + 5);
   portStr = portStr.substr(0, portStr.find("\n"));
   int port = std::stoi(portStr);
   std::cout << "Service port: " << port << std::endl;
 
+  std::string ccdDir = (fs::path(m_config.ovpn_server_conf_dir()) / serviceName / "ccd").string();
+  if (!client_ip.empty())
+  {
+    auto ipResult = ovpn::validators::validateIPv4(client_ip);
+    if (!ipResult.valid)
+    {
+      std::cerr << "Invalid client IP '" << client_ip << "': " << ipResult.reason << std::endl;
+      return false;
+    }
 
-  std::string cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa --batch build-client-full " + name + " nopass";
+    fs::create_directories(ccdDir);
+    for (const auto &entry : fs::directory_iterator(ccdDir))
+    {
+      if (!entry.is_regular_file()) continue;
+      std::ifstream f(entry.path());
+      std::string line;
+      while (std::getline(f, line))
+      {
+        if (line.find("ifconfig-push") != std::string::npos && line.find(client_ip) != std::string::npos)
+        {
+          std::cerr << "IP conflict: " << client_ip << " is already assigned to another client" << std::endl;
+          return false;
+        }
+      }
+    }
+  }
+
+  std::string cmd = ovpn::commands::replace(ovpn::commands::EASYRSA_BUILD_CLIENT_FULL, m_config, {{"NAME", name}});
   std::string output;
   if (!execCommand(cmd, output))
     return false;
 
   std::cout << "build-client-full done!" << std::endl;
   std::cout << "Ready to build client configuration." << std::endl;
-  // 生成客户端配置文件
-  std::ostringstream config;
-  config << "client\n"
-         << "dev tun\n"
-         << "proto udp\n"
-         << "remote " << wanip << " " << port << "\n"
-         << "resolv-retry infinite\n"
-         << "nobind\n"
-         << "persist-key\n"
-         << "persist-tun\n"
-         << "remote-cert-tls server\n"
-         << "cipher AES-256-CBC\n"
-         << "verb 3\n";
 
-  // 添加证书内容
+  std::ostringstream config;
+  config << ovpn::commands::replace(ovpn::commands::CLIENT_CONFIG, m_config, {
+      {"WAN_IP", wanip},
+      {"PORT", std::to_string(port)}
+  });
+
   auto addSection = [&](const std::string &file, const std::string &tag)
   {
-    // 打印日志
     std::cout << "Adding section: " << tag << " from file: " << file << std::endl;
     if (fs::exists(file))
     {
@@ -413,15 +430,27 @@ bool OpenVPNManager::createClient(const std::string &name, const std::string &se
     }
   };
 
-  addSection(EASY_RSA_DIR + "/pki/ca.crt", "ca");
-  addSection(EASY_RSA_DIR + "/pki/issued/" + name + ".crt", "cert");
-  addSection(EASY_RSA_DIR + "/pki/private/" + name + ".key", "key");
-  addSection(OVPN_SERVER_CONF_DIR + "/" + serviceName + "/ta.key", "tls-auth");
+  addSection((fs::path(m_config.easy_rsa_dir) / "pki" / "ca.crt").string(), "ca");
+  addSection((fs::path(m_config.easy_rsa_dir) / "pki" / "issued" / (name + ".crt")).string(), "cert");
+  addSection((fs::path(m_config.easy_rsa_dir) / "pki" / "private" / (name + ".key")).string(), "key");
+  addSection((fs::path(m_config.ovpn_server_conf_dir()) / serviceName / "ta.key").string(), "tls-auth");
   config << "key-direction 1\n";
 
-  // 写入文件
+  if (!client_ip.empty())
+  {
+    std::ofstream ccdFile(fs::path(ccdDir) / name);
+    if (ccdFile.is_open())
+    {
+      ccdFile << "ifconfig-push " << client_ip << " 255.255.255.0\n";
+      std::cout << "CCD fixed IP set: " << client_ip << " for client " << name << std::endl;
+    }
+    else
+    {
+      std::cerr << "Warning: failed to write CCD file for " << name << std::endl;
+    }
+  }
+
   fs::path configPath = getClientConfigPath(name, serviceName);
-  // 打印日志
   std::cout << "Writing client config to: " << configPath << std::endl;
   fs::create_directories(configPath.parent_path());
   std::ofstream out(configPath);
@@ -430,11 +459,10 @@ bool OpenVPNManager::createClient(const std::string &name, const std::string &se
 
   return true;
 }
-// 吊销客户端
+
 bool OpenVPNManager::revokeClient(const std::string &name, const std::string &serviceName)
 {
-  // 1. 吊销证书
-  std::string cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa --batch revoke " + name;
+  std::string cmd = ovpn::commands::replace(ovpn::commands::EASYRSA_REVOKE, m_config, {{"NAME", name}});
   std::string output;
   if (!execCommand(cmd, output))
   {
@@ -442,21 +470,19 @@ bool OpenVPNManager::revokeClient(const std::string &name, const std::string &se
     return false;
   }
 
-  // 2. 生成新的CRL
-  cmd = "cd " + EASY_RSA_DIR + " && ./easyrsa gen-crl";
+  cmd = ovpn::commands::replace(ovpn::commands::EASYRSA_GEN_CRL, m_config);
   if (!execCommand(cmd, output))
   {
     std::cerr << "Failed to generate CRL: " << output << std::endl;
     return false;
   }
 
-  // 3. 更新OpenVPN的CRL文件
-  if (fs::exists(EASY_RSA_DIR + "/pki/crl.pem"))
+  if (fs::exists(m_config.easy_rsa_dir + "/pki/crl.pem"))
   {
     try
     {
-      fs::copy(EASY_RSA_DIR + "/pki/crl.pem",
-               OVPN_DIR + "/crl.pem",
+      fs::copy(m_config.easy_rsa_dir + "/pki/crl.pem",
+               m_config.ovpn_dir + "/crl.pem",
                fs::copy_options::overwrite_existing);
     }
     catch (const fs::filesystem_error &e)
@@ -466,18 +492,16 @@ bool OpenVPNManager::revokeClient(const std::string &name, const std::string &se
     }
   }
 
-  // 4. 重载OpenVPN服务
-  if (!restartService(serviceName))
-  {
-    std::cerr << "Failed to restart OpenVPN service" << std::endl;
-    return false;
-  }
+  std::cout << "Client certificate revoked. CRL updated." << std::endl;
+  std::cout << "To apply immediately with minimal disruption, run:" << std::endl;
+  std::cout << "  sudo systemctl reload openvpn@" << serviceName << "-server" << std::endl;
+  std::cout << "Or schedule a restart during maintenance window:" << std::endl;
+  std::cout << "  sudo systemctl restart openvpn@" << serviceName << "-server" << std::endl;
 
-  // 5. 删除客户端文件
   std::vector<std::string> filesToDelete = {
-      EASY_RSA_DIR + "/pki/issued/" + name + ".crt",
-      EASY_RSA_DIR + "/pki/private/" + name + ".key",
-      EASY_RSA_DIR + "/pki/reqs/" + name + ".req",
+      m_config.easy_rsa_dir + "/pki/issued/" + name + ".crt",
+      m_config.easy_rsa_dir + "/pki/private/" + name + ".key",
+      m_config.easy_rsa_dir + "/pki/reqs/" + name + ".req",
       getClientConfigPath(name, serviceName)};
 
   bool success = true;
@@ -502,7 +526,6 @@ bool OpenVPNManager::revokeClient(const std::string &name, const std::string &se
 
 std::string OpenVPNManager::getOVPNFileContent(const std::string &name, const std::string &serviceName)
 {
-
   std::string configPath = getClientConfigPath(name, serviceName);
   if (!fs::exists(configPath))
   {
@@ -521,13 +544,11 @@ std::string OpenVPNManager::getOVPNFileContent(const std::string &name, const st
   return content;
 }
 
-// 获取在线客户端列表
 std::vector<VPNClient> OpenVPNManager::getOnlineClients(const std::string &serviceName)
 {
   std::vector<VPNClient> clients;
-  std::string statusFile = OVPN_SERVER_CONF_DIR + "/" + serviceName + "/status.log";
+  std::string statusFile = (fs::path(m_config.ovpn_server_conf_dir()) / serviceName / "status.log").string();
 
-  // 检查文件是否存在
   std::ifstream file(statusFile);
   if (!file.is_open()) {
       std::cerr << "[ERROR] Cannot open status file: " << statusFile << std::endl;
@@ -539,21 +560,13 @@ std::vector<VPNClient> OpenVPNManager::getOnlineClients(const std::string &servi
   bool inRoutingSection = false;
   std::map<std::string, VPNClient> clientMap;
 
-  // 调试：打印文件内容（可选）
-  // std::cout << "--- File Content ---\n";
-  // while (std::getline(file, line)) std::cout << line << "\n";
-  // file.clear();
-  // file.seekg(0);
-
   while (std::getline(file, line)) {
-      // 移除行尾换行符
-      line.erase(std::remove_if(line.begin(), line.end(), 
-                 [](char c) { return c == '\r' || c == '\n'; }), 
+      line.erase(std::remove_if(line.begin(), line.end(),
+                 [](char c) { return c == '\r' || c == '\n'; }),
                  line.end());
 
       if (line.empty()) continue;
 
-      // 检测区块
       if (line.find("OpenVPN CLIENT LIST") != std::string::npos) {
           inClientSection = true;
           inRoutingSection = false;
@@ -563,19 +576,16 @@ std::vector<VPNClient> OpenVPNManager::getOnlineClients(const std::string &servi
           inRoutingSection = true;
           continue;
       } else if (line.find("GLOBAL STATS") != std::string::npos) {
-          break;  // 结束解析
+          break;
       }
 
-      // 解析客户端列表
       if (inClientSection) {
-          // 跳过表头（例如 "Common Name,Real Address,Bytes Received,Bytes Sent,Connected Since"）
           if (line.find("Common Name") != std::string::npos) continue;
 
           std::istringstream iss(line);
           std::vector<std::string> tokens;
           std::string token;
 
-          // 按逗号分割
           while (std::getline(iss, token, ',')) {
               tokens.push_back(token);
           }
@@ -595,9 +605,7 @@ std::vector<VPNClient> OpenVPNManager::getOnlineClients(const std::string &servi
               clientMap[client.name] = client;
           }
       }
-      // 解析路由表
       else if (inRoutingSection) {
-          // 跳过表头（例如 "Virtual Address,Common Name,Real Address,Last Ref"）
           if (line.find("Virtual Address") != std::string::npos) continue;
 
           std::istringstream iss(line);
@@ -619,12 +627,10 @@ std::vector<VPNClient> OpenVPNManager::getOnlineClients(const std::string &servi
       }
   }
 
-  // 转换为 vector
   for (const auto &pair : clientMap) {
       clients.push_back(pair.second);
   }
 
-  // 按连接时间排序
   std::sort(clients.begin(), clients.end(),
             [](const VPNClient &a, const VPNClient &b) {
                 return a.since < b.since;
@@ -633,11 +639,10 @@ std::vector<VPNClient> OpenVPNManager::getOnlineClients(const std::string &servi
   return clients;
 }
 
-// 获取总客户端数量（统计client-config目录下的文件数量）
 int OpenVPNManager::getTotalClientsCount(const std::string &serviceName)
 {
-  fs::path clientConfigDir = fs::path(OVPN_DIR) / "client-configs" / serviceName;
-  
+  fs::path clientConfigDir = fs::path(m_config.ovpn_dir) / "client-configs" / serviceName;
+
   if (!fs::exists(clientConfigDir) || !fs::is_directory(clientConfigDir)) {
       return 0;
   }
@@ -648,17 +653,16 @@ int OpenVPNManager::getTotalClientsCount(const std::string &serviceName)
           count++;
       }
   }
-  
+
   return count;
 }
 
-// 获取客户端配置文件路径
 std::string OpenVPNManager::getClientConfigPath(const std::string &name, const std::string &serviceName)
 {
-  return OVPN_DIR + "/client-configs/" + serviceName + "/" + name + ".ovpn";
+  return (fs::path(m_config.ovpn_dir) / "client-configs" / serviceName / (name + ".ovpn")).string();
 }
 
 std::string OpenVPNManager::getServiceConfigPath(const std::string &name)
 {
-  return OVPN_DIR + "/" + name + "-server.conf";
+  return (fs::path(m_config.ovpn_dir) / (name + "-server.conf")).string();
 }

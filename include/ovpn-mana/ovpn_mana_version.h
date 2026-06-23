@@ -1,0 +1,8 @@
+#pragma once
+
+#define OVPN_VERSION_MAJOR 1
+#define OVPN_VERSION_MINOR 0
+#define OVPN_VERSION_PATCH 1
+#define OVPN_VERSION_DAYS  20627
+
+#define OVPN_VERSION_STRING "1.0.1.20627"

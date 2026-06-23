@@ -1,12 +1,7 @@
-/**
- * @file ovpn-mana.cpp
- * @brief OpenVPN管理器动态库文件
- * 
- */
-
-
-#include "ovpn-mana.hpp"
-#include "OpenVPNManager.hpp"
+#include "ovpn-mana/ovpn_mana_api.h"
+#include "core/openvpn_manager.hpp"
+#include "core/validators.hpp"
+#include "ovpn-mana/ovpn_mana_version.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -15,9 +10,6 @@
 #include <stdexcept>
 #include <memory>
 
-/// @brief  创建OpenVPN管理器实例并返回句柄
-/// @return  句柄
-/// @note    该函数会创建一个OpenVPN管理器实例，并返回一个句柄。该句柄可以用于后续的操作。
 LIB_API ovpn_mana_handle_t LIB_API_CALL ovpn_mana_create()
 {
   try
@@ -32,9 +24,6 @@ LIB_API ovpn_mana_handle_t LIB_API_CALL ovpn_mana_create()
   }
 }
 
-/// @brief  销毁OpenVPN管理器实例
-/// @param  handle  句柄
-/// @note    该函数会销毁OpenVPN管理器实例，并释放相关资源。
 LIB_API void LIB_API_CALL ovpn_mana_destroy(ovpn_mana_handle_t handle)
 {
   try
@@ -48,15 +37,8 @@ LIB_API void LIB_API_CALL ovpn_mana_destroy(ovpn_mana_handle_t handle)
   }
 }
 
-/// @brief  获取OpenVPN服务列表
-/// @param  handle  句柄
-/// @param  services  服务列表
-/// @param  count  服务数量
-/// @return  错误码
-/// @note    该函数会获取OpenVPN服务列表，并返回服务数量。服务列表中的每个服务包含名称、配置路径、是否激活和是否自启等信息。
 LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_list_services(ovpn_mana_handle_t handle, ovpn_service_t *services, int &service_count)
 {
-
   try
   {
     OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
@@ -65,227 +47,300 @@ LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_list_services(ovpn_mana_handle_t handl
 
     if (service_count > 0)
     {
-      // 转换VPNService 到 ovpn_service_t
       for (int i = 0; i < service_count; ++i)
       {
         strncpy(services[i].name, service_list[i].name.c_str(), sizeof(services[i].name));
         strncpy(services[i].configPath, service_list[i].configPath.c_str(), sizeof(services[i].configPath));
+        services[i].port = service_list[i].port;
+        strncpy(services[i].subnet, service_list[i].subnet.c_str(), sizeof(services[i].subnet));
         services[i].is_activated = service_list[i].isActive;
         services[i].is_enabled = service_list[i].isEnabled;
       }
     }
 
-    return OVPN_ERR_SUCCESS; // 成功
+    return OVPN_ERR_SUCCESS;
   }
   catch (const std::exception &e)
   {
     std::cerr << "Failed to list OpenVPN services: " << e.what() << std::endl;
-    return -1; // 错误
+    return -1;
   }
 }
 
-/// @brief  创建OpenVPN服务
-/// @param  handle  句柄
-/// @param  name  服务名称
-/// @param  port  服务端口
-/// @return  错误码
-/// @note    该函数会创建一个OpenVPN服务，并返回错误码。服务名称和端口号必须合法。
 LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_create_service(ovpn_mana_handle_t handle, const char *name, const char* subnet, int port)
 {
+  if (handle == nullptr || name == nullptr || subnet == nullptr) {
+    return OVPN_ERR_INVALID_PARAM;
+  }
+
+  auto nameResult = ovpn::validators::validateServiceName(name);
+  if (!nameResult.valid) {
+    std::cerr << "Invalid service name '" << name << "': " << nameResult.reason << std::endl;
+    return OVPN_ERR_INVALID_PARAM;
+  }
+  auto subnetResult = ovpn::validators::validateSubnet(subnet);
+  if (!subnetResult.valid) {
+    std::cerr << "Invalid subnet '" << subnet << "': " << subnetResult.reason << std::endl;
+    return OVPN_ERR_INVALID_PARAM;
+  }
+  auto portResult = ovpn::validators::validatePort(port);
+  if (!portResult.valid) {
+    std::cerr << "Invalid port " << port << ": " << portResult.reason << std::endl;
+    return OVPN_ERR_PORT_RANGE;
+  }
 
   try
   {
     OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
     if (manager->createService(name, subnet, port))
     {
-      return OVPN_ERR_SUCCESS; // 成功
+      return OVPN_ERR_SUCCESS;
     }
     else
     {
-      return -1; // 错误
+      return -1;
     }
   }
   catch (const std::exception &e)
   {
     std::cerr << "Failed to create OpenVPN service: " << e.what() << std::endl;
-    return -1; // 错误
+    return -1;
   }
 }
 
-/// @brief  启动OpenVPN服务
-/// @param  handle  句柄
-/// @param  name  服务名称
-/// @return  错误码
-/// @note    该函数会启动一个OpenVPN服务，并返回错误码。服务名称必须合法。
 LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_start_service(ovpn_mana_handle_t handle, const char *name)
 {
-
   try
   {
     OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
     if (manager->startService(name))
     {
-      return OVPN_ERR_SUCCESS; // 成功
+      return OVPN_ERR_SUCCESS;
     }
     else
     {
-      return -1; // 错误
+      return -1;
     }
   }
   catch (const std::exception &e)
   {
     std::cerr << "Failed to start OpenVPN service: " << e.what() << std::endl;
-    return -1; // 错误
+    return -1;
   }
 }
 
-/// @brief  停止OpenVPN服务
-/// @param  handle  句柄
-/// @param  name  服务名称
-/// @return  错误码
-/// @note    该函数会停止一个OpenVPN服务，并返回错误码。服务名称必须合法。
 LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_stop_service(ovpn_mana_handle_t handle, const char *name)
 {
-
   try
   {
     OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
     if (manager->stopService(name))
     {
-      return OVPN_ERR_SUCCESS; // 成功
+      return OVPN_ERR_SUCCESS;
     }
     else
     {
-      return -1; // 错误
+      return -1;
     }
   }
   catch (const std::exception &e)
   {
     std::cerr << "Failed to stop OpenVPN service: " << e.what() << std::endl;
-    return -1; // 错误
+    return -1;
   }
 }
 
-/// @brief  重启OpenVPN服务
-/// @param  handle  句柄
-/// @param  name  服务名称
-/// @return  错误码
-/// @note    该函数会重启一个OpenVPN服务，并返回错误码。服务名称必须合法。
 LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_restart_service(ovpn_mana_handle_t handle, const char *name)
 {
-
   try
   {
     OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
     if (manager->restartService(name))
     {
-      return OVPN_ERR_SUCCESS; // 成功
+      return OVPN_ERR_SUCCESS;
     }
     else
     {
-      return -1; // 错误
+      return -1;
     }
   }
   catch (const std::exception &e)
   {
     std::cerr << "Failed to restart OpenVPN service: " << e.what() << std::endl;
-    return -1; // 错误
+    return -1;
   }
 }
 
-/// @brief  删除OpenVPN服务
-/// @param  handle  句柄
-/// @param  name  服务名称
-/// @return  错误码
-/// @note    该函数会删除一个OpenVPN服务，并返回错误码。服务名称必须合法。
 LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_delete_service(ovpn_mana_handle_t handle, const char *name)
 {
-
   try
   {
     OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
     if (manager->deleteService(name))
     {
-      return OVPN_ERR_SUCCESS; // 成功
+      return OVPN_ERR_SUCCESS;
     }
     else
     {
-      return -1; // 错误
+      return -1;
     }
   }
   catch (const std::exception &e)
   {
     std::cerr << "Failed to delete OpenVPN service: " << e.what() << std::endl;
-    return -1; // 错误
+    return -1;
   }
 }
 
-/// @brief  创建OpenVPN客户端
-/// @param  handle  句柄
-/// @param  service_name  服务名称
-/// @param  name  客户端名称
-/// @return  错误码
-/// @note    该函数会创建一个OpenVPN客户端，并返回错误码。客户端名称和服务名称必须合法。
 LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_create_client(ovpn_mana_handle_t handle, const char *service_name, const char *name, const char* wanip)
 {
+  if (handle == nullptr || service_name == nullptr || name == nullptr || wanip == nullptr) {
+    return OVPN_ERR_INVALID_PARAM;
+  }
+
+  auto clientNameResult = ovpn::validators::validateClientName(name);
+  if (!clientNameResult.valid) {
+    std::cerr << "Invalid client name '" << name << "': " << clientNameResult.reason << std::endl;
+    return OVPN_ERR_INVALID_PARAM;
+  }
+  auto ipResult = ovpn::validators::validateHostOrIP(wanip);
+  if (!ipResult.valid) {
+    std::cerr << "Invalid WAN address '" << wanip << "': " << ipResult.reason << std::endl;
+    return OVPN_ERR_IP_FORMAT;
+  }
+
   try
   {
-
     OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
     if (manager->createClient(name, service_name, wanip))
     {
-      return OVPN_ERR_SUCCESS; // 成功
+      return OVPN_ERR_SUCCESS;
     }
     else
     {
-      return -1; // 错误
+      return -1;
     }
   }
   catch (const std::exception &e)
   {
     std::cerr << "Failed to create OpenVPN client: " << e.what() << std::endl;
-    return -1; // 错误
+    return -1;
   }
 }
 
-/// @brief  吊销OpenVPN客户端
-/// @param  handle  句柄
-/// @param  service_name  服务名称
-/// @param  name  客户端名称
-/// @return  错误码
-/// @note    该函数会吊销一个OpenVPN客户端，并返回错误码。客户端名称和服务名称必须合法。
+LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_create_client_with_ip(ovpn_mana_handle_t handle, const char *service_name, const char *name, const char* wanip, const char* client_ip)
+{
+  if (handle == nullptr || service_name == nullptr || name == nullptr || wanip == nullptr || client_ip == nullptr) {
+    return OVPN_ERR_INVALID_PARAM;
+  }
+
+  auto clientNameResult = ovpn::validators::validateClientName(name);
+  if (!clientNameResult.valid) {
+    std::cerr << "Invalid client name '" << name << "': " << clientNameResult.reason << std::endl;
+    return OVPN_ERR_INVALID_PARAM;
+  }
+  auto ipResult = ovpn::validators::validateHostOrIP(wanip);
+  if (!ipResult.valid) {
+    std::cerr << "Invalid WAN address '" << wanip << "': " << ipResult.reason << std::endl;
+    return OVPN_ERR_IP_FORMAT;
+  }
+
+  if (client_ip[0] != '\0') {
+    auto clientIpResult = ovpn::validators::validateIPv4(client_ip);
+    if (!clientIpResult.valid) {
+      std::cerr << "Invalid client IP '" << client_ip << "': " << clientIpResult.reason << std::endl;
+      return OVPN_ERR_IP_FORMAT;
+    }
+  }
+
+  try
+  {
+    OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
+    if (manager->createClient(name, service_name, wanip, client_ip))
+    {
+      return OVPN_ERR_SUCCESS;
+    }
+    else
+    {
+      return -1;
+    }
+  }
+  catch (const std::exception &e)
+  {
+    std::cerr << "Failed to create OpenVPN client with fixed IP: " << e.what() << std::endl;
+    return -1;
+  }
+}
+
+LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_export_client_config(ovpn_mana_handle_t handle, const char *service_name, const char *name, char *buffer, int &buffer_size)
+{
+  if (handle == nullptr || service_name == nullptr || name == nullptr) {
+    return OVPN_ERR_INVALID_PARAM;
+  }
+
+  auto nameResult = ovpn::validators::validateServiceName(service_name);
+  if (!nameResult.valid) {
+    std::cerr << "Invalid service name '" << service_name << "': " << nameResult.reason << std::endl;
+    return OVPN_ERR_INVALID_PARAM;
+  }
+  auto clientNameResult = ovpn::validators::validateClientName(name);
+  if (!clientNameResult.valid) {
+    std::cerr << "Invalid client name '" << name << "': " << clientNameResult.reason << std::endl;
+    return OVPN_ERR_INVALID_PARAM;
+  }
+
+  try
+  {
+    OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
+    std::string content = manager->getOVPNFileContent(name, service_name);
+    if (content.empty()) {
+      return OVPN_ERR_CLIENT_NOT_FOUND;
+    }
+
+    if (buffer == nullptr) {
+      buffer_size = (int)(content.size() + 1);
+      return OVPN_ERR_SUCCESS;
+    }
+
+    if (buffer_size < (int)(content.size() + 1)) {
+      buffer_size = (int)(content.size() + 1);
+      return OVPN_ERR_BUFFER_TOO_SMALL;
+    }
+
+    std::strncpy(buffer, content.c_str(), content.size() + 1);
+    buffer_size = (int)(content.size() + 1);
+    return OVPN_ERR_SUCCESS;
+  }
+  catch (const std::exception &e)
+  {
+    std::cerr << "Failed to export client config: " << e.what() << std::endl;
+    return -1;
+  }
+}
+
 LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_revoke_client(ovpn_mana_handle_t handle, const char *service_name, const char *name)
 {
-
   try
   {
     OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
     if (manager->revokeClient(name, service_name))
     {
-      return OVPN_ERR_SUCCESS; // 成功
+      return OVPN_ERR_SUCCESS;
     }
     else
     {
-      return -1; // 错误
+      return -1;
     }
   }
   catch (const std::exception &e)
   {
     std::cerr << "Failed to revoke OpenVPN client: " << e.what() << std::endl;
-    return -1; // 错误
+    return -1;
   }
 }
 
-/// @brief  获取在线OpenVPN客户端列表
-/// @param  handle  句柄
-/// @param  service_name  服务名称
-/// @param  clients  客户端列表 (如果为nullptr，则只返回client_count)
-/// @param  client_count  客户端数量
-/// @return  错误码
-/// @note    该函数会获取在线OpenVPN客户端列表，并返回客户端数量。客户端列表中的每个客户端包含名称、VPN IP、真实 IP、上线时间、接收字节数和发送字节数等信息。
 LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_online_clients(ovpn_mana_handle_t handle, const char *service_name, ovpn_client_t *clients, int &client_count)
 {
-
   try
   {
     OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
@@ -294,7 +349,6 @@ LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_online_clients(ovpn_mana_handle_t 
 
     if (clients != nullptr && client_count > 0)
     {
-      // 转换VPNClient 到 ovpn_client_t，使用snprintf确保安全复制和null终止
       for (int i = 0; i < client_count; ++i)
       {
         snprintf(clients[i].name, sizeof(clients[i].name), "%s", client_list[i].name.c_str());
@@ -306,47 +360,32 @@ LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_online_clients(ovpn_mana_handle_t 
       }
     }
 
-    return OVPN_ERR_SUCCESS; // 成功
+    return OVPN_ERR_SUCCESS;
   }
   catch (const std::exception &e)
   {
     std::cerr << "Failed to get online OpenVPN clients: " << e.what() << std::endl;
-    return -1; // 错误
+    return -1;
   }
 }
 
-/// @brief  获取总客户端数量
-/// @param  handle  句柄
-/// @param  service_name  服务名称
-/// @param  total_count  总客户端数量
-/// @return  错误码
-/// @note    该函数会获取指定服务的总客户端数量（统计client-config目录下的.ovpn文件数量）。
 LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_total_clients_count(ovpn_mana_handle_t handle, const char *service_name, int &total_count)
 {
-
   try
   {
     OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
     total_count = manager->getTotalClientsCount(service_name);
-    return OVPN_ERR_SUCCESS; // 成功
+    return OVPN_ERR_SUCCESS;
   }
   catch (const std::exception &e)
   {
     std::cerr << "Failed to get total clients count: " << e.what() << std::endl;
-    return -1; // 错误
+    return -1;
   }
 }
-/// @brief  返回指定OpenVPN客户端配置文件内容
-/// @param  handle  句柄
-/// @param  service_name  服务名称
-/// @param  name  客户端名称
-/// @param  ovpn_file  客户端配置文件内容
-/// @param  ovpn_file_size  客户端配置文件大小
-/// @return  错误码
-/// @note    该函数会返回指定OpenVPN客户端配置文件内容，并返回配置文件大小。客户端名称和服务名称必须合法。
+
 LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_client_config(ovpn_mana_handle_t handle, const char *service_name, const char *name, char *ovpn_file, int &ovpn_file_size)
 {
-
   try
   {
     OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
@@ -356,16 +395,55 @@ LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_client_config(ovpn_mana_handle_t h
     if (ovpn_file_size > 0)
     {
       strncpy(ovpn_file, content.c_str(), ovpn_file_size);
-      return OVPN_ERR_SUCCESS; // 成功
+      return OVPN_ERR_SUCCESS;
     }
     else
     {
-      return -1; // 错误
+      return -1;
     }
   }
   catch (const std::exception &e)
   {
     std::cerr << "Failed to get OpenVPN client config: " << e.what() << std::endl;
-    return -1; // 错误
+    return -1;
   }
+}
+
+LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_configure(ovpn_mana_handle_t handle, const ovpn_config_t *config)
+{
+  try
+  {
+    if (handle == nullptr || config == nullptr) {
+      return OVPN_ERR_INVALID_PARAM;
+    }
+
+    OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
+    AppConfig cfg = AppConfig::defaults();
+
+    if (config->easy_rsa_dir[0] != '\0') {
+      cfg.easy_rsa_dir = config->easy_rsa_dir;
+    }
+    if (config->ovpn_dir[0] != '\0') {
+      cfg.ovpn_dir = config->ovpn_dir;
+    }
+    if (config->openvpn_bin[0] != '\0') {
+      cfg.openvpn_bin = config->openvpn_bin;
+    }
+    if (config->systemctl_bin[0] != '\0') {
+      cfg.systemctl_bin = config->systemctl_bin;
+    }
+
+    manager->configure(cfg);
+    return OVPN_ERR_SUCCESS;
+  }
+  catch (const std::exception &e)
+  {
+    std::cerr << "Failed to configure OpenVPN manager: " << e.what() << std::endl;
+    return OVPN_ERR_FAILURE;
+  }
+}
+
+LIB_API const char* LIB_API_CALL ovpn_mana_get_version()
+{
+  return OVPN_VERSION_STRING;
 }

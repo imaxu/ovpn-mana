@@ -1,11 +1,18 @@
 cmake_minimum_required(VERSION 3.10)
 
 # 基本信息
-set(PROJECT_MAIN_VERSION 1.0.0.1)
+set(PROJECT_MAJOR 1)
+set(PROJECT_MINOR 0)
+set(PROJECT_PATCH 1)
+
+# 自动计算 DAYS（UTC 1970 起累计天数）
+string(TIMESTAMP BUILD_DAYS "%s" UTC)
+math(EXPR PROJECT_DAYS "${BUILD_DAYS} / 86400")
+
+set(PROJECT_MAIN_VERSION "${PROJECT_MAJOR}.${PROJECT_MINOR}.${PROJECT_PATCH}.${PROJECT_DAYS}")
 set(PROJECT_MAKE_BATCH 250424)
 set(PROJECT_COMPANY_NAME "xuwh, xudev")
 set(PROJECT_NAME openvpn-mana)
-
 
 project(${PROJECT_NAME} VERSION ${PROJECT_MAIN_VERSION} LANGUAGES C CXX)
 
@@ -19,17 +26,15 @@ set(OVPN_DIR "/etc/openvpn" CACHE PATH "OpenVPN配置目录")
 
 # 平台兼容定义
 if(UNIX)
-  # 如果是WINDOWS 则添加宏定义WIN
   add_definitions(-DUNIX)
-elseif(WIN32) 
-  # 如果是UNIX 则添加宏定义WIN
+elseif(WIN32)
   add_definitions(-DWIN)
-  # 设置vcpkg的安装路径
   set(CMAKE_TOOLCHAIN_FILE "d:/dev/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "VCPKG toolchain file")
-  #设置gtest dir
   set(GTest_DIR "vcpkg_installed/x64-windows-static/share/gtest" CACHE STRING "GTest dir")
+  add_compile_options(/utf-8)
+  add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+  add_compile_options(/wd4267)
 endif()
-
 
 # 定义输出路径
 set(PROJECT_OUTPUT_DIR ${PROJECT_SOURCE_DIR}/build/${CMAKE_HOST_SYSTEM_NAME}_${CMAKE_SYSTEM_PROCESSOR})
@@ -39,15 +44,21 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_OUTPUT_DIR})
 
 # 生成配置头文件
 configure_file(
-    "${PROJECT_SOURCE_DIR}/include/config.hpp.in"
+    "${PROJECT_SOURCE_DIR}/cmake/config.hpp.in"
     "${PROJECT_SOURCE_DIR}/include/config.hpp"
+)
+
+# 生成版本头文件
+configure_file(
+    "${PROJECT_SOURCE_DIR}/cmake/version.hpp.in"
+    "${PROJECT_SOURCE_DIR}/include/ovpn-mana/ovpn_mana_version.h"
 )
 
 # 头文件目录
 include_directories(
     ${PROJECT_SOURCE_DIR}/include
+    ${PROJECT_SOURCE_DIR}/src
 )
-
 
 # 查找必要的库
 find_package(GTest REQUIRED)
@@ -58,22 +69,26 @@ option(BUILD_TESTS "Build tests" ON)
 
 # 公开的动态库
 add_library(ovpn-mana SHARED
-    src/ovpn-mana.cpp
-    src/OpenVPNManager.cpp
+    src/ovpn_mana_api.cpp
+    src/core/openvpn_manager.cpp
+    src/core/validators.cpp
+    src/core/command_templates.cpp
 )
 set_target_properties(ovpn-mana PROPERTIES
     VERSION ${PROJECT_MAIN_VERSION}
     SOVERSION 1
-    PUBLIC_HEADER include/ovpn-mana.h
+    PUBLIC_HEADER include/ovpn-mana/ovpn_mana_api.h
 )
 
 # 主程序
 add_executable(openvpnmgr
     src/main.cpp
+    src/cli/console_renderer.cpp
+    src/cli/cli_handler.cpp
 )
 target_link_libraries(openvpnmgr PRIVATE ovpn-mana)
 
-# 添加安装后脚本设置权限
+# 安装
 install(CODE "
     execute_process(
         COMMAND chown root:root ${OVPN_DIR}/*.crt ${OVPN_DIR}/*.key ${OVPN_DIR}/*.pem
@@ -81,3 +96,59 @@ install(CODE "
         COMMAND chmod 600 ${OVPN_DIR}/*.key
     )
 ")
+
+if(BUILD_TESTS)
+    add_executable(test_validators
+        test/test_validators.cpp
+        src/core/validators.cpp
+    )
+    target_link_libraries(test_validators PRIVATE GTest::GTest GTest::Main)
+    if(MSVC)
+        target_compile_options(test_validators PRIVATE
+            $<$<CONFIG:Debug>:/MTd>
+            $<$<CONFIG:Release>:/MT>
+        )
+    endif()
+    add_test(NAME validators COMMAND test_validators)
+
+    add_executable(test_command_templates
+        test/test_command_templates.cpp
+        src/core/command_templates.cpp
+    )
+    target_link_libraries(test_command_templates PRIVATE GTest::GTest GTest::Main)
+    if(MSVC)
+        target_compile_options(test_command_templates PRIVATE
+            $<$<CONFIG:Debug>:/MTd>
+            $<$<CONFIG:Release>:/MT>
+        )
+    endif()
+    add_test(NAME command_templates COMMAND test_command_templates)
+
+    add_executable(test_validators_integration
+        test/test_validators_integration.cpp
+        src/core/validators.cpp
+        src/core/openvpn_manager.cpp
+        src/core/command_templates.cpp
+    )
+    target_link_libraries(test_validators_integration PRIVATE GTest::GTest GTest::Main ovpn-mana)
+    if(MSVC)
+        target_compile_options(test_validators_integration PRIVATE
+            $<$<CONFIG:Debug>:/MTd>
+            $<$<CONFIG:Release>:/MT>
+        )
+    endif()
+    add_test(NAME validators_integration COMMAND test_validators_integration)
+
+    add_executable(test_appconfig_defaults
+        test/test_appconfig_defaults.cpp
+        src/core/command_templates.cpp
+    )
+    target_link_libraries(test_appconfig_defaults PRIVATE GTest::GTest GTest::Main)
+    if(MSVC)
+        target_compile_options(test_appconfig_defaults PRIVATE
+            $<$<CONFIG:Debug>:/MTd>
+            $<$<CONFIG:Release>:/MT>
+        )
+    endif()
+    add_test(NAME appconfig_defaults COMMAND test_appconfig_defaults)
+endif()
