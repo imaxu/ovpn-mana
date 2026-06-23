@@ -1,0 +1,21 @@
+# ----------------------------------------------------
+# GitHub CODEOWNERS 配置文件 (当前账号: imaxu)
+# ----------------------------------------------------
+
+# 1. 默认全局负责人（当下面的特例都没匹配到时，默认需要你审批）
+* @imaxu
+
+# 2. 文档与说明文件（可以指定你自己，或者协同翻译/文档的小伙伴）
+*.md                                    @imaxu
+/docs/                                  @imaxu
+
+# 3. 基础设施与自动化构建（如 GitHub Actions 流程、SonarQube 配置等）
+/.github/workflows/                     @imaxu
+/sonar-project.properties               @imaxu
+
+# 4. 核心/共享模块
+# /src/Core/                            @imaxu
+
+# 5. 团队协作示例
+# /frontend/                            @frontend-developer
+# /backend/                             @imaxu
