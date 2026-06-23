@@ -1,0 +1,19 @@
+LIBRARY ovpn-mana
+EXPORTS
+    ovpn_mana_configure
+    ovpn_mana_create
+    ovpn_mana_create_client
+    ovpn_mana_create_client_with_ip
+    ovpn_mana_create_service
+    ovpn_mana_delete_service
+    ovpn_mana_destroy
+    ovpn_mana_export_client_config
+    ovpn_mana_get_client_config
+    ovpn_mana_get_online_clients
+    ovpn_mana_get_total_clients_count
+    ovpn_mana_get_version
+    ovpn_mana_list_services
+    ovpn_mana_restart_service
+    ovpn_mana_revoke_client
+    ovpn_mana_start_service
+    ovpn_mana_stop_service

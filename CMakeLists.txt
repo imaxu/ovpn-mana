@@ -79,6 +79,10 @@ set_target_properties(ovpn-mana PROPERTIES
     SOVERSION 1
     PUBLIC_HEADER include/ovpn-mana/ovpn_mana_api.h
 )
+target_compile_definitions(ovpn-mana PRIVATE OVPN_MANA_EXPORTS)
+if(WIN32)
+    target_sources(ovpn-mana PRIVATE cmake/libovpn-mana.def)
+endif()
 
 # 主程序
 add_executable(openvpnmgr
