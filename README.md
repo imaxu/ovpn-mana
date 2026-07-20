@@ -818,6 +818,799 @@ UUID 格式的客户端名称（36 字符）会导致表格列宽溢出。当前
 
 ---
 
+## C# 集成指南 (C# Integration Guide)
+
+本节提供完整的 C# P/Invoke 声明和数据结构定义，便于 .NET / ABP 应用程序快速集成 `libovpn-mana.so` 或 `ovpn-mana.dll`。
+
+### 环境准备
+
+#### Linux (.so)
+
+```csharp
+// 将 libovpn-mana.so 部署到 /usr/local/lib/ 或应用程序目录
+// 设置 LD_LIBRARY_PATH 环境变量或使用绝对路径 DllImport
+```
+
+#### Windows (.dll)
+
+```csharp
+// 将 ovpn-mana.dll、ovpn-mana.lib 放置在应用程序目录或 System32
+// 确保 OpenVPN 和 Easy-RSA 已安装并在 PATH 中
+```
+
+### 完整的 C# P/Invoke 定义
+
+```csharp
+using System;
+using System.Runtime.InteropServices;
+
+namespace OvpnMana
+{
+    /// <summary>
+    /// OVPN-MANA 动态库 P/Invoke 封装
+    /// 支持 Linux (libovpn-mana.so) 和 Windows (ovpn-mana.dll)
+    /// </summary>
+    public static class OvpnManaNative
+    {
+        #region 平台检测与动态库名称
+
+        private const string LinuxLibrary = "libovpn-mana.so";
+        private const string WindowsLibrary = "ovpn-mana.dll";
+
+        private static string LibraryName =>
+            RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? WindowsLibrary
+                : LinuxLibrary;
+
+        #endregion
+
+        #region 生命周期管理
+
+        /// <summary>
+        /// 创建管理器实例
+        /// 返回句柄用于后续所有 API 调用
+        /// </summary>
+        /// <returns>管理器句柄</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr ovpn_mana_create();
+
+        /// <summary>
+        /// 销毁管理器实例并释放资源
+        /// </summary>
+        /// <param name="handle">管理器句柄</param>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void ovpn_mana_destroy(IntPtr handle);
+
+        #endregion
+
+        #region 服务管理
+
+        /// <summary>
+        /// 获取服务列表（仅返回通过 OVPN-MANA 创建的服务）
+        /// </summary>
+        /// <param name="handle">管理器句柄</param>
+        /// <param name="services">服务数组指针（调用方分配）</param>
+        /// <param name="service_count">输入时为数组容量，输出时为实际数量</param>
+        /// <returns>错误码</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int ovpn_mana_list_services(
+            IntPtr handle,
+            [Out] OvpnService[] services,
+            ref int service_count);
+
+        /// <summary>
+        /// 创建 OpenVPN 服务实例
+        /// </summary>
+        /// <param name="handle">管理器句柄</param>
+        /// <param name="name">服务名称</param>
+        /// <param name="subnet">客户端子网 CIDR（如 10.8.0.0/24）</param>
+        /// <param name="port">监听端口</param>
+        /// <returns>错误码</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int ovpn_mana_create_service(
+            IntPtr handle,
+            [MarshalAs(UnmanagedType.LPStr)] string name,
+            [MarshalAs(UnmanagedType.LPStr)] string subnet,
+            int port);
+
+        /// <summary>
+        /// 启动服务
+        /// </summary>
+        /// <param name="handle">管理器句柄</param>
+        /// <param name="name">服务名称</param>
+        /// <returns>错误码</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int ovpn_mana_start_service(
+            IntPtr handle,
+            [MarshalAs(UnmanagedType.LPStr)] string name);
+
+        /// <summary>
+        /// 停止服务
+        /// </summary>
+        /// <param name="handle">管理器句柄</param>
+        /// <param name="name">服务名称</param>
+        /// <returns>错误码</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int ovpn_mana_stop_service(
+            IntPtr handle,
+            [MarshalAs(UnmanagedType.LPStr)] string name);
+
+        /// <summary>
+        /// 重启服务
+        /// </summary>
+        /// <param name="handle">管理器句柄</param>
+        /// <param name="name">服务名称</param>
+        /// <returns>错误码</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int ovpn_mana_restart_service(
+            IntPtr handle,
+            [MarshalAs(UnmanagedType.LPStr)] string name);
+
+        /// <summary>
+        /// 删除服务（含证书吊销）
+        /// </summary>
+        /// <param name="handle">管理器句柄</param>
+        /// <param name="name">服务名称</param>
+        /// <returns>错误码</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int ovpn_mana_delete_service(
+            IntPtr handle,
+            [MarshalAs(UnmanagedType.LPStr)] string name);
+
+        #endregion
+
+        #region 客户端管理
+
+        /// <summary>
+        /// 创建客户端（动态分配 VPN IP）
+        /// </summary>
+        /// <param name="handle">管理器句柄</param>
+        /// <param name="service_name">所属服务名称</param>
+        /// <param name="name">客户端名称</param>
+        /// <param name="wanip">客户端公网 IP 或域名</param>
+        /// <returns>错误码</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int ovpn_mana_create_client(
+            IntPtr handle,
+            [MarshalAs(UnmanagedType.LPStr)] string service_name,
+            [MarshalAs(UnmanagedType.LPStr)] string name,
+            [MarshalAs(UnmanagedType.LPStr)] string wanip);
+
+        /// <summary>
+        /// 创建客户端（指定固定 IP）
+        /// </summary>
+        /// <param name="handle">管理器句柄</param>
+        /// <param name="service_name">所属服务名称</param>
+        /// <param name="name">客户端名称</param>
+        /// <param name="wanip">客户端公网 IP 或域名</param>
+        /// <param name="client_ip">固定 VPN 内网 IP（如 10.8.0.100）</param>
+        /// <returns>错误码</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int ovpn_mana_create_client_with_ip(
+            IntPtr handle,
+            [MarshalAs(UnmanagedType.LPStr)] string service_name,
+            [MarshalAs(UnmanagedType.LPStr)] string name,
+            [MarshalAs(UnmanagedType.LPStr)] string wanip,
+            [MarshalAs(UnmanagedType.LPStr)] string client_ip);
+
+        /// <summary>
+        /// 吊销客户端证书
+        /// </summary>
+        /// <param name="handle">管理器句柄</param>
+        /// <param name="service_name">所属服务名称</param>
+        /// <param name="name">客户端名称</param>
+        /// <returns>错误码</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int ovpn_mana_revoke_client(
+            IntPtr handle,
+            [MarshalAs(UnmanagedType.LPStr)] string service_name,
+            [MarshalAs(UnmanagedType.LPStr)] string name);
+
+        /// <summary>
+        /// 获取在线客户端列表（按 IP 升序，含流量统计）
+        /// </summary>
+        /// <param name="handle">管理器句柄</param>
+        /// <param name="service_name">服务名称</param>
+        /// <param name="clients">客户端数组指针（调用方分配）</param>
+        /// <param name="client_count">输入时为数组容量，输出时为实际数量</param>
+        /// <returns>错误码</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int ovpn_mana_get_online_clients(
+            IntPtr handle,
+            [MarshalAs(UnmanagedType.LPStr)] string service_name,
+            [Out] OvpnClient[] clients,
+            ref int client_count);
+
+        /// <summary>
+        /// 获取总客户端数（含离线）
+        /// </summary>
+        /// <param name="handle">管理器句柄</param>
+        /// <param name="service_name">服务名称</param>
+        /// <param name="total_count">输出参数：总客户端数量</param>
+        /// <returns>错误码</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int ovpn_mana_get_total_clients_count(
+            IntPtr handle,
+            [MarshalAs(UnmanagedType.LPStr)] string service_name,
+            ref int total_count);
+
+        /// <summary>
+        /// 获取客户端 .ovpn 配置文件内容
+        /// </summary>
+        /// <param name="handle">管理器句柄</param>
+        /// <param name="service_name">服务名称</param>
+        /// <param name="name">客户端名称</param>
+        /// <param name="ovpn_file">缓冲区指针（调用方分配，建议 > 10KB）</param>
+        /// <param name="ovpn_file_size">输入时为缓冲区大小，输出时为实际内容大小</param>
+        /// <returns>错误码</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int ovpn_mana_get_client_config(
+            IntPtr handle,
+            [MarshalAs(UnmanagedType.LPStr)] string service_name,
+            [MarshalAs(UnmanagedType.LPStr)] string name,
+            StringBuilder ovpn_file,
+            ref int ovpn_file_size);
+
+        /// <summary>
+        /// 导出客户端配置文件（同上，别名接口）
+        /// </summary>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int ovpn_mana_export_client_config(
+            IntPtr handle,
+            [MarshalAs(UnmanagedType.LPStr)] string service_name,
+            [MarshalAs(UnmanagedType.LPStr)] string name,
+            StringBuilder buffer,
+            ref int buffer_size);
+
+        #endregion
+
+        #region 配置与版本
+
+        /// <summary>
+        /// 自定义运行时配置（覆盖默认路径）
+        /// </summary>
+        /// <param name="handle">管理器句柄</param>
+        /// <param name="config">配置结构体</param>
+        /// <returns>错误码</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int ovpn_mana_configure(
+            IntPtr handle,
+            ref OvpnConfig config);
+
+        /// <summary>
+        /// 获取动态库版本号字符串
+        /// </summary>
+        /// <returns>版本号（如 "1.0.0.20626"）</returns>
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        [return: MarshalAs(UnmanagedType.LPStr)]
+        public static extern string ovpn_mana_get_version();
+
+        #endregion
+    }
+
+    #region 数据结构定义
+
+    /// <summary>
+    /// 服务信息结构体
+    /// 对应 C: ovpn_service_t
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    public struct OvpnService
+    {
+        /// <summary>服务名称（最大 64 字符）</summary>
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
+        public string Name;
+
+        /// <summary>配置文件路径（最大 256 字符）</summary>
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string ConfigPath;
+
+        /// <summary>监听端口</summary>
+        public int Port;
+
+        /// <summary>客户端子网 CIDR（如 "10.8.0.0/24"，最大 32 字符）</summary>
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string Subnet;
+
+        /// <summary>是否运行中（1=是, 0=否）</summary>
+        public int IsActivated;
+
+        /// <summary>是否开机自启（1=是, 0=否）</summary>
+        public int IsEnabled;
+    }
+
+    /// <summary>
+    /// 在线客户端信息结构体
+    /// 对应 C: ovpn_client_t
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    public struct OvpnClient
+    {
+        /// <summary>客户端名称（最大 128 字符）</summary>
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string Name;
+
+        /// <summary>VPN 内网 IP（最大 32 字符）</summary>
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string PrivateIpv4;
+
+        /// <summary>公网 IP:Port（最大 64 字符）</summary>
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
+        public string PublicIpv4;
+
+        /// <summary>连接时间（最大 64 字符）</summary>
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
+        public string Since;
+
+        /// <summary>接收字节数</summary>
+        public ulong BytesReceived;
+
+        /// <summary>发送字节数</summary>
+        public ulong BytesSent;
+    }
+
+    /// <summary>
+    /// 运行时配置结构体（自定义路径覆盖默认值）
+    /// 对应 C: ovpn_config_t
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    public struct OvpnConfig
+    {
+        /// <summary>Easy-RSA 安装路径（最大 256 字符）</summary>
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string EasyRsaDir;
+
+        /// <summary>OpenVPN 配置根目录（最大 256 字符）</summary>
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string OvpnDir;
+
+        /// <summary>OpenVPN 二进制完整路径（最大 256 字符）</summary>
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string OpenvpnBin;
+
+        /// <summary>systemctl 二进制完整路径（最大 256 字符）</summary>
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string SystemctlBin;
+    }
+
+    #endregion
+
+    #region 错误码定义
+
+    /// <summary>
+    /// 错误码枚举
+    /// 对应 C: ovpn_err_t 及宏定义
+    /// </summary>
+    public enum OvpnError : int
+    {
+        /// <summary>成功</summary>
+        Success = 0,
+
+        /// <summary>通用失败</summary>
+        Failure = -1,
+
+        /// <summary>参数不合法</summary>
+        InvalidParam = -2,
+
+        /// <summary>资源不存在</summary>
+        NotFound = -3,
+
+        /// <summary>权限不足</summary>
+        PermissionDenied = -4,
+
+        /// <summary>操作超时</summary>
+        Timeout = -5,
+
+        /// <summary>I/O 操作失败</summary>
+        IoFailure = -6,
+
+        /// <summary>名称过长</summary>
+        NameTooLong = -1002,
+
+        /// <summary>IP 格式错误</summary>
+        IpFormat = -1003,
+
+        /// <summary>端口范围错误</summary>
+        PortRange = -1004,
+
+        /// <summary>包含非法字符</summary>
+        ForbiddenChar = -1005,
+
+        /// <summary>缓冲区太小</summary>
+        BufferTooSmall = -1006,
+
+        /// <summary>服务不存在</summary>
+        ServiceNotFound = -1007,
+
+        /// <summary>客户端不存在</summary>
+        ClientNotFound = -1008,
+
+        /// <summary>IP 冲突</summary>
+        IpConflict = -1009
+    }
+
+    #endregion
+}
+```
+
+### 使用示例
+
+#### 基础用法（原生 P/Invoke）
+
+```csharp
+using System;
+using System.Text;
+using OvpnMana;
+
+class Program
+{
+    static void Main()
+    {
+        // 1. 创建管理器实例
+        IntPtr handle = OvpnManaNative.ovpn_mana_create();
+        try
+        {
+            // 2. 查询版本
+            string version = OvpnManaNative.ovpn_mana_get_version();
+            Console.WriteLine($"OVPN-MANA Version: {version}");
+
+            // 3. 列出所有服务
+            var services = new OvpnService[16];
+            int count = services.Length;
+            int err = OvpnManaNative.ovpn_mana_list_services(handle, services, ref count);
+            if (err == (int)OvpnError.Success)
+            {
+                Console.WriteLine($"\n=== Services ({count}) ===");
+                for (int i = 0; i < count; i++)
+                {
+                    Console.WriteLine($"[{i}] {services[i].Name} | " +
+                        $"Port:{services[i].Port} | " +
+                        $"Subnet:{services[i].Subnet} | " +
+                        $"Active:{services[i].IsActivated}");
+                }
+            }
+
+            // 4. 创建新服务
+            err = OvpnManaNative.ovpn_mana_create_service(handle, "myvpn", "10.8.0.0/24", 1194);
+            if (err == (int)OvpnError.Success)
+            {
+                Console.WriteLine("\nService created successfully.");
+
+                // 5. 启动服务
+                err = OvpnManaNative.ovpn_mana_start_service(handle, "myvpn");
+                if (err == (int)OvpnError.Success)
+                {
+                    Console.WriteLine("Service started.");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Create service failed: {(OvpnError)err}");
+            }
+
+            // 6. 创建客户端
+            err = OvpnManaNative.ovpn_mana_create_client(handle, "myvpn", "alice", "1.2.3.4");
+            if (err == (int)OvpnError.Success)
+            {
+                Console.WriteLine("Client 'alice' created.");
+            }
+
+            // 7. 获取在线客户端
+            var clients = new OvpnClient[64];
+            int clientCount = clients.Length;
+            err = OvpnManaNative.ovpn_mana_get_online_clients(handle, "myvpn", clients, ref clientCount);
+            if (err == (int)OvpnError.Success && clientCount > 0)
+            {
+                Console.WriteLine($"\n=== Online Clients ({clientCount}) ===");
+                for (int i = 0; i < clientCount; i++)
+                {
+                    Console.WriteLine($"- {clients[i].Name} | " +
+                        $"VPN:{clients[i].PrivateIpv4} | " +
+                        $"Public:{clients[i].PublicIpv4} | " +
+                        $"RX:{FormatBytes(clients[i].BytesReceived)} | " +
+                        $"TX:{FormatBytes(clients[i].BytesSent)}");
+                }
+            }
+
+            // 8. 导出客户端配置文件
+            var buffer = new StringBuilder(16384); // 16KB 缓冲区
+            int bufferSize = buffer.Capacity;
+            err = OvpnManaNative.ovpn_mana_get_client_config(handle, "myvpn", "alice", buffer, ref bufferSize);
+            if (err == (int)OvpnError.Success)
+            {
+                Console.WriteLine($"\n=== Alice's OVPN Config ({bufferSize} bytes) ===");
+                Console.WriteLine(buffer.ToString());
+            }
+        }
+        finally
+        {
+            // 9. 销毁管理器（释放资源）
+            OvpnManaNative.ovpn_mana_destroy(handle);
+        }
+    }
+
+    static string FormatBytes(ulong bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len /= 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+}
+```
+
+#### ABP vNext 应用服务封装（推荐）
+
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using OvpnMana;
+using Volo.Abp;
+using Volo.Abp.Application.Services;
+using Volo.Abp.Domain.Services;
+
+namespace MyProject.Vpn
+{
+    /// <summary>
+    /// VPN 管理应用服务（ABP vNext 风格）
+    /// 提供异步包装和异常转换
+    /// </summary>
+    public class VpnManagementAppService : ApplicationService, IVpnManagementAppService
+    {
+        private readonly ILogger<VpnManagementAppService> _logger;
+
+        public VpnManagementAppService(ILogger<VpnManagementAppService> logger)
+        {
+            _logger = logger;
+        }
+
+        private IntPtr EnsureHandle()
+        {
+            var handle = OvpnManaNative.ovpn_mana_create();
+            if (handle == IntPtr.Zero)
+            {
+                throw new UserFriendlyException("无法初始化 OVPN-MANA 管理器");
+            }
+            return handle;
+        }
+
+        private void ThrowIfError(int errorCode, string operation)
+        {
+            if (errorCode != (int)OvpnError.Success)
+            {
+                _logger.LogError("{Operation} 失败，错误码: {ErrorCode}", operation, errorCode);
+                throw new UserFriendlyException($"{operation} 失败: {(OvpnError)errorCode}");
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<List<ServiceDto>> GetServicesAsync()
+        {
+            await Task.CompletedTask; // P/Invoke 同步调用，此处仅兼容 ABP 异步模式
+            var handle = EnsureHandle();
+            try
+            {
+                var services = new OvpnService[32];
+                int count = services.Length;
+                int err = OvpnManaNative.ovpn_mana_list_services(handle, services, ref count);
+                ThrowIfError(err, "获取服务列表");
+
+                var result = new List<ServiceDto>(count);
+                for (int i = 0; i < count; i++)
+                {
+                    result.Add(new ServiceDto
+                    {
+                        Name = services[i].Name,
+                        Port = services[i].Port,
+                        Subnet = services[i].Subnet,
+                        IsActivated = services[i].IsActivated == 1,
+                        IsEnabled = services[i].IsEnabled == 1
+                    });
+                }
+                return result;
+            }
+            finally
+            {
+                OvpnManaNative.ovpn_mana_destroy(handle);
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task CreateServiceAsync(string name, string subnet, int port)
+        {
+            await Task.CompletedTask;
+            var handle = EnsureHandle();
+            try
+            {
+                int err = OvpnManaNative.ovpn_mana_create_service(handle, name, subnet, port);
+                ThrowIfError(err, $"创建服务 '{name}'");
+
+                _logger.LogInformation("VPN 服务创建成功: {Name}, Port: {Port}, Subnet: {Subnet}",
+                    name, port, subnet);
+            }
+            finally
+            {
+                OvpnManaNative.ovpn_mana_destroy(handle);
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task CreateClientAsync(string serviceName, string clientName, string wanIp, string fixedIp = null)
+        {
+            await Task.CompletedTask;
+            var handle = EnsureHandle();
+            try
+            {
+                int err;
+                if (!string.IsNullOrWhiteSpace(fixedIp))
+                {
+                    err = OvpnManaNative.ovpn_mana_create_client_with_ip(
+                        handle, serviceName, clientName, wanIp, fixedIp);
+                }
+                else
+                {
+                    err = OvpnManaNative.ovpn_mana_create_client(
+                        handle, serviceName, clientName, wanIp);
+                }
+                ThrowIfError(err, $"创建客户端 '{clientName}'");
+
+                _logger.LogInformation("VPN 客户端创建成功: {ClientName}@{Service}", clientName, serviceName);
+            }
+            finally
+            {
+                OvpnManaNative.ovpn_mana_destroy(handle);
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<List<ClientDto>> GetOnlineClientsAsync(string serviceName)
+        {
+            await Task.CompletedTask;
+            var handle = EnsureHandle();
+            try
+            {
+                var clients = new OvpnClient[128];
+                int count = clients.Length;
+                int err = OvpnManaNative.ovpn_mana_get_online_clients(handle, serviceName, clients, ref count);
+                ThrowIfError(err, $"获取在线客户端 '{serviceName}'");
+
+                var result = new List<ClientDto>(count);
+                for (int i = 0; i < count; i++)
+                {
+                    result.Add(new ClientDto
+                    {
+                        Name = clients[i].Name,
+                        PrivateIpv4 = clients[i].PrivateIpv4,
+                        PublicIpv4 = clients[i].PublicIpv4,
+                        Since = clients[i].Since,
+                        BytesReceived = clients[i].BytesReceived,
+                        BytesSent = clients[i].BytesSent
+                    });
+                }
+                return result;
+            }
+            finally
+            {
+                OvpnManaNative.ovpn_mana_destroy(handle);
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<string> ExportClientConfigAsync(string serviceName, string clientName)
+        {
+            await Task.CompletedTask;
+            var handle = EnsureHandle();
+            try
+            {
+                var buffer = new StringBuilder(32768); // 32KB
+                int size = buffer.Capacity;
+                int err = OvpnManaNative.ovpn_mana_get_client_config(
+                    handle, serviceName, clientName, buffer, ref size);
+                ThrowIfError(err, $"导出配置 '{clientName}'");
+
+                return buffer.ToString(0, size);
+            }
+            finally
+            {
+                OvpnManaNative.ovpn_mana_destroy(handle);
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task RevokeClientAsync(string serviceName, string clientName)
+        {
+            await Task.CompletedTask;
+            var handle = EnsureHandle();
+            try
+            {
+                int err = OvpnManaNative.ovpn_mana_revoke_client(handle, serviceName, clientName);
+                ThrowIfError(err, $"吊销客户端 '{clientName}'");
+
+                _logger.LogWarning("VPN 客户端已吊销: {ClientName}@{Service}", clientName, serviceName);
+            }
+            finally
+            {
+                OvpnManaNative.ovpn_mana_destroy(handle);
+            }
+        }
+    }
+
+    #region DTOs
+
+    public class ServiceDto
+    {
+        public string Name { get; set; }
+        public int Port { get; set; }
+        public string Subnet { get; set; }
+        public bool IsActivated { get; set; }
+        public bool IsEnabled { get; set; }
+    }
+
+    public class ClientDto
+    {
+        public string Name { get; set; }
+        public string PrivateIpv4 { get; set; }
+        public string PublicIpv4 { get; set; }
+        public string Since { get; set; }
+        public ulong BytesReceived { get; set; }
+        public ulong BytesSent { get; set; }
+    }
+
+    public interface IVpnManagementAppService : IApplicationService
+    {
+        Task<List<ServiceDto>> GetServicesAsync();
+        Task CreateServiceAsync(string name, string subnet, int port);
+        Task CreateClientAsync(string serviceName, string clientName, string wanIp, string fixedIp = null);
+        Task<List<ClientDto>> GetOnlineClientsAsync(string serviceName);
+        Task<string> ExportClientConfigAsync(string serviceName, string clientName);
+        Task RevokeClientAsync(string serviceName, string clientName);
+    }
+
+    #endregion
+}
+```
+
+### 注意事项（C# 开发者必读）
+
+1. **平台差异**
+   - Linux 使用 `libovpn-mana.so`，Windows 使用 `ovpn-mana.dll`
+   - Windows 下需确保 DLL 依赖项（VC++ 运行时）已安装
+
+2. **内存管理**
+   - `ovpn_mana_create()` 返回的句柄必须在用完后调用 `ovpn_mana_destroy()` 释放
+   - 建议使用 `try-finally` 或 `IDisposable` 包装确保资源释放
+
+3. **数组缓冲区**
+   - `services` 和 `clients` 数组由调用方预分配
+   - 先传入数组容量，API 返回后 `*_count` 变量为实际元素数量
+   - 建议初始分配较大空间（如 32/128 个元素）
+
+4. **字符串编码**
+   - 所有字符串使用 ANSI 编码（`CharSet.Ansi`）
+   - C# 侧使用 `[MarshalAs(UnmanagedType.LPStr)]` 自动转换
+
+5. **线程安全**
+   - 每个 `handle` 不保证线程安全，多线程场景下建议每线程独立创建 handle
+   - 或在外层加锁同步
+
+6. **错误处理**
+   - 所有 API 返回 `int` 类型错误码，必须检查返回值
+   - 使用 `OvpnError` 枚举进行可读性判断
+
+7. **性能优化**
+   - 高频调用场景考虑缓存 `handle`（单例模式）
+   - 批量操作时复用同一 handle 避免重复创建/销毁开销
+
+---
+
 ## 注意事项
 
 - 证书文件存储在 `/etc/openvpn/easy-rsa/pki/`，服务配置文件存储在 `/etc/openvpn/server/<service>/`，请勿手动删除。
