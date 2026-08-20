@@ -657,6 +657,61 @@ int OpenVPNManager::getTotalClientsCount(const std::string &serviceName)
   return count;
 }
 
+std::vector<VPNClient> OpenVPNManager::getTotalClients(const std::string &serviceName)
+{
+  std::vector<VPNClient> clients;
+  fs::path clientConfigDir = fs::path(m_config.ovpn_dir) / "client-configs" / serviceName;
+  fs::path ccdDir = fs::path(m_config.ovpn_server_conf_dir()) / serviceName / "ccd";
+
+  if (!fs::exists(clientConfigDir) || !fs::is_directory(clientConfigDir)) {
+      return clients;
+  }
+
+  for (const auto &entry : fs::directory_iterator(clientConfigDir))
+  {
+      if (entry.is_regular_file() && entry.path().extension() == ".ovpn")
+      {
+          VPNClient client;
+          client.name = entry.path().stem().string();
+          client.vpnIp = "";
+          client.realIp = "";
+          client.since = "";
+          client.bytesReceived = 0;
+          client.bytesSent = 0;
+
+          fs::path ccdFile = ccdDir / client.name;
+          if (fs::exists(ccdFile) && fs::is_regular_file(ccdFile))
+          {
+              std::ifstream f(ccdFile);
+              std::string line;
+              while (std::getline(f, line))
+              {
+                  if (line.find("ifconfig-push") != std::string::npos)
+                  {
+                      std::istringstream iss(line);
+                      std::string token;
+                      int field = 0;
+                      while (iss >> token)
+                      {
+                          if (field == 1)
+                          {
+                              client.vpnIp = token;
+                              break;
+                          }
+                          field++;
+                      }
+                      break;
+                  }
+              }
+          }
+
+          clients.push_back(client);
+      }
+  }
+
+  return clients;
+}
+
 std::string OpenVPNManager::getClientConfigPath(const std::string &name, const std::string &serviceName)
 {
   return (fs::path(m_config.ovpn_dir) / "client-configs" / serviceName / (name + ".ovpn")).string();
