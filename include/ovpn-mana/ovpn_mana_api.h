@@ -45,6 +45,8 @@ extern "C"
 
   LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_total_clients_count(ovpn_mana_handle_t handle, const char *service_name, int &total_count);
 
+  LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_total_clients(ovpn_mana_handle_t handle, const char *service_name, ovpn_client_t *clients, int &client_count);
+
   LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_client_config(ovpn_mana_handle_t handle, const char *service_name, const char *name, char *ovpn_file, int &ovpn_file_size);
 
   LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_configure(ovpn_mana_handle_t handle, const ovpn_config_t *config);

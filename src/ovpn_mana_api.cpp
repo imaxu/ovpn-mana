@@ -384,6 +384,36 @@ LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_total_clients_count(ovpn_mana_hand
   }
 }
 
+LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_total_clients(ovpn_mana_handle_t handle, const char *service_name, ovpn_client_t *clients, int &client_count)
+{
+  try
+  {
+    OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
+    std::vector<VPNClient> client_list = manager->getTotalClients(service_name);
+    client_count = client_list.size();
+
+    if (clients != nullptr && client_count > 0)
+    {
+      for (int i = 0; i < client_count; ++i)
+      {
+        snprintf(clients[i].name, sizeof(clients[i].name), "%s", client_list[i].name.c_str());
+        snprintf(clients[i].private_ipv4, sizeof(clients[i].private_ipv4), "%s", client_list[i].vpnIp.c_str());
+        memset(clients[i].public_ipv4, 0, sizeof(clients[i].public_ipv4));
+        memset(clients[i].since, 0, sizeof(clients[i].since));
+        clients[i].bytes_received = client_list[i].bytesReceived;
+        clients[i].bytes_sent = client_list[i].bytesSent;
+      }
+    }
+
+    return OVPN_ERR_SUCCESS;
+  }
+  catch (const std::exception &e)
+  {
+    std::cerr << "Failed to get total clients list: " << e.what() << std::endl;
+    return -1;
+  }
+}
+
 LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_get_client_config(ovpn_mana_handle_t handle, const char *service_name, const char *name, char *ovpn_file, int &ovpn_file_size)
 {
   try

@@ -11,6 +11,7 @@ EXPORTS
     ovpn_mana_get_client_config
     ovpn_mana_get_online_clients
     ovpn_mana_get_total_clients_count
+    ovpn_mana_get_total_clients
     ovpn_mana_get_version
     ovpn_mana_list_services
     ovpn_mana_restart_service

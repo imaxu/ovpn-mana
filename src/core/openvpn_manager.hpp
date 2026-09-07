@@ -45,6 +45,7 @@ public:
     bool revokeClient(const std::string &name, const std::string &serviceName);
     std::vector<VPNClient> getOnlineClients(const std::string &serviceName);
     int getTotalClientsCount(const std::string &serviceName);
+    std::vector<VPNClient> getTotalClients(const std::string &serviceName);
     std::string getOVPNFileContent(const std::string &name, const std::string &serviceName);
 
 private:
