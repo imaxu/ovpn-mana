@@ -17,7 +17,8 @@ int main(int argc, char *argv[])
 
   std::string config_path;
   for (int i = 1; i < argc - 1; i++) {
-    if (std::strcmp(argv[i], "--config") == 0 || std::strcmp(argv[i], "-c") == 0) {
+    if ((std::strcmp(argv[i], "--config-file") == 0 || std::strcmp(argv[i], "-f") == 0) &&
+        std::strstr(argv[i+1], ".json")) {
       config_path = argv[i + 1];
       break;
     }
