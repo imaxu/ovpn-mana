@@ -17,6 +17,13 @@ LIB_API ovpn_mana_handle_t LIB_API_CALL ovpn_mana_create()
   {
     OpenVPNManager *manager = new OpenVPNManager();
     AppConfig config = ovpn::config::load_config();
+
+    std::cerr << "[CONFIG] Loading configuration..." << std::endl;
+    std::cerr << "[CONFIG] Easy-RSA Dir: " << config.easy_rsa_dir << std::endl;
+    std::cerr << "[CONFIG] OpenVPN Dir: " << config.ovpn_dir << std::endl;
+    std::cerr << "[CONFIG] OpenVPN Bin: " << config.openvpn_bin << std::endl;
+    std::cerr << "[CONFIG] Systemctl Bin: " << config.systemctl_bin << std::endl;
+
     manager->configure(config);
     return reinterpret_cast<ovpn_mana_handle_t>(manager);
   }

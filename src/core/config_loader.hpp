@@ -26,12 +26,23 @@ inline AppConfig load_from_file(const std::string &config_path) {
 
     std::ifstream file(config_path);
     if (!file.is_open()) {
+        std::cerr << "[CONFIG] WARNING: Cannot open config file: " << config_path << std::endl;
+        std::cerr << "[CONFIG] Using default configuration" << std::endl;
         return config;
     }
+
+    std::cerr << "[CONFIG] Successfully opened: " << config_path << std::endl;
 
     std::string content((std::istreambuf_iterator<char>(file)),
                          std::istreambuf_iterator<char>());
     file.close();
+
+    if (content.empty()) {
+        std::cerr << "[CONFIG] WARNING: Config file is empty: " << config_path << std::endl;
+        return config;
+    }
+
+    std::cerr << "[CONFIG] File size: " << content.length() << " bytes" << std::endl;
 
     auto get_value = [&content](const std::string &key) -> std::string {
         std::string search_key = "\"" + key + "\"";
@@ -55,17 +66,32 @@ inline AppConfig load_from_file(const std::string &config_path) {
     std::string value;
 
     value = get_value("easy_rsa_dir");
-    if (!value.empty()) config.easy_rsa_dir = value;
+    if (!value.empty()) {
+        config.easy_rsa_dir = value;
+        std::cerr << "[CONFIG] Parsed easy_rsa_dir: " << value << std::endl;
+    } else {
+        std::cerr << "[CONFIG] easy_rsa_dir not found in config, using default" << std::endl;
+    }
 
     value = get_value("ovpn_dir");
-    if (!value.empty()) config.ovpn_dir = value;
+    if (!value.empty()) {
+        config.ovpn_dir = value;
+        std::cerr << "[CONFIG] Parsed ovpn_dir: " << value << std::endl;
+    }
 
     value = get_value("openvpn_bin");
-    if (!value.empty()) config.openvpn_bin = value;
+    if (!value.empty()) {
+        config.openvpn_bin = value;
+        std::cerr << "[CONFIG] Parsed openvpn_bin: " << value << std::endl;
+    }
 
     value = get_value("systemctl_bin");
-    if (!value.empty()) config.systemctl_bin = value;
+    if (!value.empty()) {
+        config.systemctl_bin = value;
+        std::cerr << "[CONFIG] Parsed systemctl_bin: " << value << std::endl;
+    }
 
+    std::cerr << "[CONFIG] Configuration loaded successfully from file" << std::endl;
     return config;
 }
 

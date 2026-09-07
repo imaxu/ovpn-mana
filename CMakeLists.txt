@@ -171,3 +171,9 @@ if(BUILD_TESTS)
 endif()
 
 install(FILES config/ovpn-mana.json.example DESTINATION ${CMAKE_INSTALL_PREFIX}/etc/openvpn RENAME ovpn-mana.json)
+
+add_executable(check_config
+    tools/check_config.cpp
+    src/core/command_templates.cpp
+)
+target_link_libraries(check_config PRIVATE ovpn-mana)
