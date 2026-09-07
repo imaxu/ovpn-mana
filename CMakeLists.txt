@@ -155,4 +155,19 @@ if(BUILD_TESTS)
         )
     endif()
     add_test(NAME appconfig_defaults COMMAND test_appconfig_defaults)
+
+    add_executable(test_config_loader
+        test/test_config_loader.cpp
+        src/core/command_templates.cpp
+    )
+    target_link_libraries(test_config_loader PRIVATE GTest::GTest GTest::Main)
+    if(MSVC)
+        target_compile_options(test_config_loader PRIVATE
+            $<$<CONFIG:Debug>:/MTd>
+            $<$<CONFIG:Release>:/MT>
+        )
+    endif()
+    add_test(NAME config_loader COMMAND test_config_loader)
 endif()
+
+install(FILES config/ovpn-mana.json.example DESTINATION ${CMAKE_INSTALL_PREFIX}/etc/openvpn RENAME ovpn-mana.json)

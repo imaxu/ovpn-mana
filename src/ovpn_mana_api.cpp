@@ -1,6 +1,7 @@
 #include "ovpn-mana/ovpn_mana_api.h"
 #include "core/openvpn_manager.hpp"
 #include "core/validators.hpp"
+#include "core/config_loader.hpp"
 #include "ovpn-mana/ovpn_mana_version.h"
 #include <iostream>
 #include <string>
@@ -15,6 +16,8 @@ LIB_API ovpn_mana_handle_t LIB_API_CALL ovpn_mana_create()
   try
   {
     OpenVPNManager *manager = new OpenVPNManager();
+    AppConfig config = ovpn::config::load_config();
+    manager->configure(config);
     return reinterpret_cast<ovpn_mana_handle_t>(manager);
   }
   catch (const std::exception &e)
@@ -476,4 +479,26 @@ LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_configure(ovpn_mana_handle_t handle, c
 LIB_API const char* LIB_API_CALL ovpn_mana_get_version()
 {
   return OVPN_VERSION_STRING;
+}
+
+LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_load_config(ovpn_mana_handle_t handle, const char *config_path)
+{
+  try
+  {
+    if (handle == nullptr || config_path == nullptr) {
+      return OVPN_ERR_INVALID_PARAM;
+    }
+
+    OpenVPNManager *manager = reinterpret_cast<OpenVPNManager *>(handle);
+    std::string path(config_path);
+    AppConfig config = ovpn::config::load_config(path);
+    manager->configure(config);
+
+    return OVPN_ERR_SUCCESS;
+  }
+  catch (const std::exception &e)
+  {
+    std::cerr << "Failed to load config from file: " << e.what() << std::endl;
+    return OVPN_ERR_FAILURE;
+  }
 }

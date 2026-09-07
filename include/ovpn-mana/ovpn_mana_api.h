@@ -51,6 +51,8 @@ extern "C"
 
   LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_configure(ovpn_mana_handle_t handle, const ovpn_config_t *config);
 
+  LIB_API ovpn_err_t LIB_API_CALL ovpn_mana_load_config(ovpn_mana_handle_t handle, const char *config_path);
+
   LIB_API const char* LIB_API_CALL ovpn_mana_get_version();
 
 #ifdef __cplusplus

@@ -15,6 +15,14 @@ int main(int argc, char *argv[])
 
   std::cout << ovpn::cli::renderBanner("OpenVPN Command Line Manager", OVPN_VERSION_STRING);
 
+  std::string config_path;
+  for (int i = 1; i < argc - 1; i++) {
+    if (std::strcmp(argv[i], "--config") == 0 || std::strcmp(argv[i], "-c") == 0) {
+      config_path = argv[i + 1];
+      break;
+    }
+  }
+
   if (argc == 2 && std::strcmp(argv[1], "--check") == 0)
   {
     return ovpn::cli::handle_check_command();
@@ -27,6 +35,16 @@ int main(int argc, char *argv[])
   {
     std::cerr << ovpn::cli::color::RED << "Failed to create OpenVPN manager" << ovpn::cli::color::RESET << std::endl;
     return -1;
+  }
+
+  if (!config_path.empty()) {
+    ovpn_err_t err = ovpn_mana_load_config(handle, config_path.c_str());
+    if (err != OVPN_ERR_SUCCESS) {
+      std::cerr << ovpn::cli::color::RED << "Failed to load config: " << config_path << ovpn::cli::color::RESET << std::endl;
+      ovpn_mana_destroy(handle);
+      return -1;
+    }
+    std::cout << ovpn::cli::color::GREEN << "Config loaded from: " << config_path << ovpn::cli::color::RESET << std::endl;
   }
 
   if (!is_root) {

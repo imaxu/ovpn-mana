@@ -1,0 +1,1 @@
+{"easy_rsa_dir": "/etc/openvpn/easy-rsa", "ovpn_dir": "/etc/openvpn", "openvpn_bin": "/usr/sbin/openvpn", "systemctl_bin": "/bin/systemctl"}
