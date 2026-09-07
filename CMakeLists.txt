@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 # 基本信息
 set(PROJECT_MAJOR 1)
 set(PROJECT_MINOR 0)
-set(PROJECT_PATCH 2)
+set(PROJECT_PATCH 3)
 
 # 自动计算 DAYS（UTC 1970 起累计天数）
 string(TIMESTAMP BUILD_DAYS "%s" UTC)
